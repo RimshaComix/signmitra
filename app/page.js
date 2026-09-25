@@ -31,7 +31,8 @@ import {
   ArrowDown,
   Layers,
   Star,
-  Quote
+  Quote,
+  BarChart3
 } from 'lucide-react';
 
 /* 
@@ -70,7 +71,6 @@ const REVIEWS = [
 ];
 
 export default function Home() {
-  // Global Theme Context Hook
   const {
     isDarkTheme,
     toggleTheme,
@@ -132,14 +132,14 @@ export default function Home() {
       <header className={`sticky top-0 z-40 backdrop-blur-md border-b ${borderTone} ${isDarkTheme ? 'bg-[#655A7C]/95' : 'bg-[#FDF1E2]/95'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-7">
-            <a href="#" className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2.5">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold tracking-tight text-sm shadow-sm ${accentSolid}`}>
                 SM
               </div>
               <span className="font-extrabold text-lg tracking-tight">
                 SignMitra
               </span>
-            </a>
+            </Link>
             <nav className="hidden md:flex items-center gap-6 text-xs font-bold uppercase tracking-wider">
               <a href="#features" className={`hover:opacity-75 transition-opacity ${textSecondary}`}>Features</a>
               <a href="#capabilities" className={`hover:opacity-75 transition-opacity ${textSecondary}`}>Capabilities</a>
@@ -149,11 +149,21 @@ export default function Home() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className={`hidden sm:inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono font-bold border ${borderTone} ${cardBg}`}>
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Direct Dashboard Link */}
+            <Link
+              href="/dashboard"
+              className={`px-3 py-1.5 rounded-lg border ${borderTone} ${cardBg} text-xs font-mono font-bold uppercase tracking-wider hover:opacity-80 transition-all inline-flex items-center gap-1.5`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Metrics</span> Dashboard
+            </Link>
+
+            <span className={`hidden lg:inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono font-bold border ${borderTone} ${cardBg}`}>
               <span className={`w-2 h-2 rounded-full mr-2 animate-pulse ${isDarkTheme ? 'bg-[#FDF1E2]' : 'bg-[#655A7C]'}`}></span>
               Open Platform
             </span>
+
             <button
               onClick={toggleTheme}
               aria-label="Toggle Theme Mode"
@@ -161,11 +171,12 @@ export default function Home() {
             >
               {isDarkTheme ? <Sun className="w-4 h-4 text-[#FDF1E2]" /> : <Moon className="w-4 h-4 text-[#655A7C]" />}
             </button>
+
             <a
               href="#product-engine"
-              className={`inline-flex items-center justify-center px-3.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-all ${accentSolid}`}
+              className={`hidden sm:inline-flex items-center justify-center px-3.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-all ${accentSolid}`}
             >
-              Product Overview
+              Overview
             </a>
           </div>
         </div>
@@ -202,12 +213,21 @@ export default function Home() {
                   Explore SignMitra
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Link>
+
+                <Link
+                  href="/dashboard"
+                  className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-wider hover:opacity-90 transition-all`}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  View Dashboard
+                </Link>
+
                 <Link
                   href="/emergency"
                   className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-wider hover:opacity-90 transition-all`}
                 >
                   <ShieldAlert className="w-4 h-4" />
-                  Open Emergency Mode
+                  Emergency Mode
                 </Link>
               </div>
             </div>
@@ -250,6 +270,7 @@ export default function Home() {
                     <div>[success] Healthcare workflow available</div>
                     <div>[success] Education workflow available</div>
                     <div>[success] Banking workflow available</div>
+                    <div>[success] Metrics benchmarking module linked</div>
                   </div>
 
                   <div className={`pt-2.5 font-bold text-xs flex items-center gap-2 border-t ${borderTone}`}>
@@ -449,15 +470,22 @@ export default function Home() {
               </p>
             </div>
 
-            <div className={`p-5 rounded-lg border ${borderTone} ${cardInnerBg} flex flex-col`}>
+            {/* Empirical Research / Dashboard Highlight */}
+            <Link
+              href="/dashboard"
+              className={`p-5 rounded-lg border ${borderTone} ${cardInnerBg} flex flex-col hover:opacity-90 transition-opacity group`}
+            >
               <div className={`w-9 h-9 rounded-md flex items-center justify-center mb-3.5 font-bold ${accentSolid}`}>
-                <Layers className="w-4 h-4" />
+                <BarChart3 className="w-4 h-4" />
               </div>
-              <h3 className="font-extrabold mb-1.5 text-xs tracking-wide uppercase">CONTROLLED MESSAGES</h3>
+              <h3 className="font-extrabold mb-1.5 text-xs tracking-wide uppercase flex items-center justify-between">
+                <span>METRICS BENCHMARKING</span>
+                <span className="text-[10px] group-hover:translate-x-0.5 transition-transform">→</span>
+              </h3>
               <p className={`text-xs leading-relaxed ${textSecondary}`}>
-                Structured data is compiled into explicit, unambiguous communication cards that preserve exact intent.
+                Record interaction latency against manual pen-and-paper baselines and export clean CSV datasets for evaluation audits.
               </p>
-            </div>
+            </Link>
           </div>
         </div>
       </section>
@@ -849,13 +877,20 @@ export default function Home() {
           <p className={`text-sm sm:text-base max-w-xl mx-auto mb-7 leading-relaxed ${textSecondary}`}>
             SignMitra helps ISL users navigate everyday interactions with greater independence, clarity, and control.
           </p>
-          <div className="flex items-center justify-center">
+          <div className="flex flex-wrap items-center justify-center gap-3.5">
             <Link
               href="/communication-hub"
               className={`inline-flex items-center gap-2 px-7 py-3.5 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-opacity ${accentSolid}`}
             >
               Explore SignMitra
               <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              href="/dashboard"
+              className={`inline-flex items-center gap-2 px-6 py-3.5 rounded-lg text-xs font-bold uppercase tracking-wider border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-opacity`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              Metrics Dashboard
             </Link>
           </div>
         </div>
@@ -879,10 +914,10 @@ export default function Home() {
             <div>
               <h4 className="font-bold text-xs uppercase tracking-wider mb-3">Navigation</h4>
               <ul className="space-y-2 text-xs font-medium">
+                <li><Link href="/communication-hub" className="hover:opacity-75 transition-opacity">Communication Hub</Link></li>
+                <li><Link href="/dashboard" className="hover:opacity-75 transition-opacity">Metrics Dashboard</Link></li>
+                <li><Link href="/emergency" className="hover:opacity-75 transition-opacity">Emergency Mode</Link></li>
                 <li><a href="#accessibility" className="hover:opacity-75 transition-opacity">Accessibility</a></li>
-                <li><a href="#capabilities" className="hover:opacity-75 transition-opacity">Privacy</a></li>
-                <li><a href="#domains" className="hover:opacity-75 transition-opacity">Documentation</a></li>
-                <li><a href="#product-engine" className="hover:opacity-75 transition-opacity">Platform</a></li>
               </ul>
             </div>
 

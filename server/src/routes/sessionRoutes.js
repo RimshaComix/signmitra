@@ -12,9 +12,8 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Domain and Intent parameters are required.' });
     }
 
-    // Set standard session lifecycle data minimization boundary (e.g., deletes in 1 hour)
-    const expirationTime = new Date();
-    expirationTime.setHours(expirationTime.getHours() + 1);
+    // Set standard session lifecycle data minimization boundary (1 hour TTL)
+    const expirationTime = new Date(Date.now() + 60 * 60 * 1000);
 
     const newSession = new Session({
       sessionId: crypto.randomUUID(),
@@ -47,7 +46,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// 3. POST /api/sessions/:id/transition - Control State Machine updates (EDIT, BACK, SUBMIT)
+// 3. POST /api/sessions/:id/transition - Control State Machine updates
 router.post('/:id/transition', async (req, res) => {
   try {
     const { action, incomingEntities } = req.body;
@@ -57,26 +56,39 @@ router.post('/:id/transition', async (req, res) => {
       return res.status(404).json({ error: 'Session unavailable.' });
     }
 
-    // Store historical state snapshot to power structural "BACK" execution flows safely
+    // Guard: Prevent transitioning cancelled or completed sessions
+    if (['completed', 'cancelled'].includes(session.currentState)) {
+      return res.status(400).json({ error: `Cannot transition a ${session.currentState} session.` });
+    }
+
     const previousState = session.currentState;
 
-    if (action === 'SUBMIT_ENTITY') {
-      if (incomingEntities) session.entities = incomingEntities;
-      session.historyStates.push(previousState);
-      session.currentState = 'review';
-    } 
-    else if (action === 'HANDOFF_STAFF') {
-      session.historyStates.push(previousState);
-      session.currentState = 'awaiting_confirmation';
-    }
-    else if (action === 'BACK') {
-      if (session.historyStates.length > 0) {
-        const nextTargetState = session.historyStates.pop();
-        session.currentState = nextTargetState;
-      }
-    } 
-    else if (action === 'CANCEL') {
-      session.currentState = 'cancelled';
+    switch (action) {
+      case 'SUBMIT_ENTITY':
+        if (incomingEntities) session.entities = incomingEntities;
+        session.historyStates.push(previousState);
+        session.currentState = 'review';
+        break;
+
+      case 'HANDOFF_STAFF':
+        session.historyStates.push(previousState);
+        session.currentState = 'awaiting_confirmation';
+        break;
+
+      case 'BACK':
+        if (session.historyStates.length > 0) {
+          session.currentState = session.historyStates.pop();
+        } else {
+          return res.status(400).json({ error: 'No previous state to return to.' });
+        }
+        break;
+
+      case 'CANCEL':
+        session.currentState = 'cancelled';
+        break;
+
+      default:
+        return res.status(400).json({ error: `Invalid action '${action}' provided.` });
     }
 
     await session.save();
@@ -86,7 +98,7 @@ router.post('/:id/transition', async (req, res) => {
   }
 });
 
-// 4. POST /api/sessions/:id/respond - Receive and parse Two-Way Staff Input choices
+// 4. POST /api/sessions/:id/respond - Receive and parse Staff Input choices
 router.post('/:id/respond', async (req, res) => {
   try {
     const { selectedOption, customText } = req.body;
@@ -94,6 +106,13 @@ router.post('/:id/respond', async (req, res) => {
 
     if (!session) {
       return res.status(404).json({ error: 'Active session not found.' });
+    }
+
+    // Guard: Only allow responses during awaiting_confirmation
+    if (session.currentState !== 'awaiting_confirmation') {
+      return res.status(400).json({ 
+        error: `Cannot record response while session is in '${session.currentState}' state.` 
+      });
     }
 
     if (!selectedOption && !customText) {

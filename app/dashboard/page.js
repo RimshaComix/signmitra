@@ -11,11 +11,11 @@ import {
   Play,
   Square,
   Sparkles,
-  RotateCcw,
   BarChart3,
   Clock,
   CheckCircle2,
-  Trash2
+  Trash2,
+  Download
 } from 'lucide-react';
 
 /* 
@@ -90,20 +90,41 @@ export default function EmpiricalDashboard() {
   };
 
   const clearLogs = () => {
-    if (confirm("Reset all empirical benchmark evaluation records?")) {
+    if (confirm('Reset all empirical benchmark evaluation records?')) {
       localStorage.removeItem('signmitra_empirical_metrics');
       setEvaluationLogs([]);
     }
   };
 
+  // 1-Click CSV Benchmark Dataset Exporter
+  const exportCSV = () => {
+    if (evaluationLogs.length === 0) return;
+    const headers = 'Scenario,Method,DurationSeconds,InteractionCount,Date\n';
+    const rows = evaluationLogs
+      .map(
+        (log) =>
+          `"${log.scenarioName}","${log.method}",${log.durationSeconds},${log.interactionCount},"${log.timestamp}"`
+      )
+      .join('\n');
+
+    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `signmitra_empirical_metrics_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const computeMethodAverages = (methodType) => {
-    const subset = evaluationLogs.filter(log => log.method === methodType);
+    const subset = evaluationLogs.filter((log) => log.method === methodType);
     if (subset.length === 0) return { time: 0, steps: 0, success: 0 };
-    
+
     const totalTime = subset.reduce((acc, log) => acc + log.durationSeconds, 0);
     const totalSteps = subset.reduce((acc, log) => acc + log.interactionCount, 0);
-    const totalSuccess = subset.filter(log => log.isCompleted).length;
-    
+    const totalSuccess = subset.filter((log) => log.isCompleted).length;
+
     return {
       time: (totalTime / subset.length).toFixed(1),
       steps: (totalSteps / subset.length).toFixed(1),
@@ -115,10 +136,13 @@ export default function EmpiricalDashboard() {
   const traditionalStats = computeMethodAverages('Traditional Text');
 
   return (
-    <div className={`min-h-screen transition-colors duration-200 font-sans antialiased selection:bg-[#655A7C] selection:text-[#FDF1E2] flex flex-col justify-between ${bgCanvas} ${textPrimary}`}>
-      
+    <div
+      className={`min-h-screen transition-colors duration-200 font-sans antialiased selection:bg-[#655A7C] selection:text-[#FDF1E2] flex flex-col justify-between ${bgCanvas} ${textPrimary}`}
+    >
       {/* Top Runtime Status Bar */}
-      <div className={`w-full border-b py-2 px-4 sm:px-6 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg}`}>
+      <div
+        className={`w-full border-b py-2 px-4 sm:px-6 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg}`}
+      >
         <div className="flex items-center gap-2">
           <Link
             href="/"
@@ -136,53 +160,80 @@ export default function EmpiricalDashboard() {
             aria-label="Toggle Theme Mode"
             className={`p-1.5 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all`}
           >
-            {isDarkTheme ? <Sun className="w-3.5 h-3.5 text-[#FDF1E2]" /> : <Moon className="w-3.5 h-3.5 text-[#655A7C]" />}
+            {isDarkTheme ? (
+              <Sun className="w-3.5 h-3.5 text-[#FDF1E2]" />
+            ) : (
+              <Moon className="w-3.5 h-3.5 text-[#655A7C]" />
+            )}
           </button>
         </div>
       </div>
 
       <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-12 my-auto">
-        
         {/* Header Section */}
-        <header className={`rounded-xl border ${borderTone} p-6 sm:p-7 mb-8 shadow-sm ${cardBg}`}>
-          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border ${borderTone} ${cardInnerBg} text-[11px] font-mono font-bold uppercase tracking-wider mb-3`}>
+        <header
+          className={`rounded-xl border ${borderTone} p-6 sm:p-7 mb-8 shadow-sm ${cardBg}`}
+        >
+          <div
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border ${borderTone} ${cardInnerBg} text-[11px] font-mono font-bold uppercase tracking-wider mb-3`}
+          >
             <Activity className="w-3.5 h-3.5" />
             MODULE: VALIDATION & METRICS
           </div>
           <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight leading-[1.08]">
             Empirical Evaluation & Metrics
           </h1>
-          <p className={`text-xs sm:text-sm mt-1.5 max-w-xl font-normal leading-relaxed ${textSecondary}`}>
-            Run structured scenario evaluations to record and measure SignMitra speed and success rates against baseline manual handwriting alternatives.
+          <p
+            className={`text-xs sm:text-sm mt-1.5 max-w-xl font-normal leading-relaxed ${textSecondary}`}
+          >
+            Run structured scenario evaluations to record and measure SignMitra speed and
+            success rates against baseline manual handwriting alternatives.
           </p>
         </header>
 
         {/* SECTION 1: Scenario Experiment Runner */}
-        <section className={`p-6 sm:p-7 rounded-xl border ${borderTone} mb-8 shadow-sm ${cardBg}`}>
-          <div className="flex items-center justify-between mb-5 border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+        <section
+          className={`p-6 sm:p-7 rounded-xl border ${borderTone} mb-8 shadow-sm ${cardBg}`}
+        >
+          <div
+            className="flex items-center justify-between mb-5 border-b pb-3"
+            style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}
+          >
             <span className="text-xs font-mono font-bold uppercase tracking-widest opacity-80 flex items-center gap-2">
               <Clock className="w-4 h-4" />
               Scenario Experiment Runner
             </span>
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${borderTone} ${cardInnerBg}`}>
+            <span
+              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${borderTone} ${cardInnerBg}`}
+            >
               LIVE CONTROLLER
             </span>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-mono font-bold uppercase tracking-wider">
                 1. Select Target Scenario
               </label>
-              <select 
+              <select
                 value={activeExperiment.scenarioName}
-                onChange={(e) => setActiveExperiment(p => ({ ...p, scenarioName: e.target.value }))}
+                onChange={(e) =>
+                  setActiveExperiment((p) => ({ ...p, scenarioName: e.target.value }))
+                }
                 className={`p-3 w-full font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardInnerBg} ${borderTone} focus:border-[#655A7C]`}
               >
-                <option className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>Healthcare: Specialist Booking</option>
-                <option className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>Healthcare: Explaining Symptoms</option>
-                <option className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>Banking: Block Damaged Card</option>
-                <option className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>Education: Dispute Absence Mark</option>
+                <option className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>
+                  Healthcare: Specialist Booking
+                </option>
+                <option className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>
+                  Healthcare: Explaining Symptoms
+                </option>
+                <option className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>
+                  Banking: Block Damaged Card
+                </option>
+                <option className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>
+                  Education: Dispute Absence Mark
+                </option>
               </select>
             </div>
 
@@ -191,15 +242,27 @@ export default function EmpiricalDashboard() {
                 2. Testing Methodology
               </label>
               <div className="grid grid-cols-2 gap-2 text-xs font-mono font-bold">
-                <button 
-                  onClick={() => setActiveExperiment(p => ({ ...p, method: 'SignMitra' }))}
-                  className={`py-3 px-2 rounded-lg border transition-all uppercase tracking-wider ${activeExperiment.method === 'SignMitra' ? accentSolid : `${cardInnerBg}${borderTone} opacity-75 hover:opacity-100`}`}
+                <button
+                  type="button"
+                  onClick={() => setActiveExperiment((p) => ({ ...p, method: 'SignMitra' }))}
+                  className={`py-3 px-2 rounded-lg border transition-all uppercase tracking-wider ${
+                    activeExperiment.method === 'SignMitra'
+                      ? accentSolid
+                      : `${cardInnerBg}${borderTone} opacity-75 hover:opacity-100`
+                  }`}
                 >
                   SignMitra
                 </button>
-                <button 
-                  onClick={() => setActiveExperiment(p => ({ ...p, method: 'Traditional Text' }))}
-                  className={`py-3 px-2 rounded-lg border transition-all uppercase tracking-wider ${activeExperiment.method === 'Traditional Text' ? accentSolid : `${cardInnerBg}${borderTone} opacity-75 hover:opacity-100`}`}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveExperiment((p) => ({ ...p, method: 'Traditional Text' }))
+                  }
+                  className={`py-3 px-2 rounded-lg border transition-all uppercase tracking-wider ${
+                    activeExperiment.method === 'Traditional Text'
+                      ? accentSolid
+                      : `${cardInnerBg}${borderTone} opacity-75 hover:opacity-100`
+                  }`}
                 >
                   Pen & Paper
                 </button>
@@ -210,36 +273,49 @@ export default function EmpiricalDashboard() {
               <label className="text-xs font-mono font-bold uppercase tracking-wider">
                 3. Interaction Count
               </label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={activeExperiment.interactionCount}
-                onChange={(e) => setActiveExperiment(p => ({ ...p, interactionCount: parseInt(e.target.value) || 0 }))}
+                onChange={(e) =>
+                  setActiveExperiment((p) => ({
+                    ...p,
+                    interactionCount: parseInt(e.target.value, 10) || 0
+                  }))
+                }
                 className={`p-3 w-full font-mono font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors text-center ${cardInnerBg} ${borderTone} focus:border-[#655A7C]`}
                 min="0"
               />
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-t pt-5 gap-4" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+          <div
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-t pt-5 gap-4"
+            style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}
+          >
             <div className="text-left font-mono">
-              <span className="text-[10px] uppercase font-bold opacity-70 block">Task Running Clock</span>
+              <span className="text-[10px] uppercase font-bold opacity-70 block">
+                Task Running Clock
+              </span>
               <span className="text-3xl font-black tracking-tight">
-                {secondsElapsed} <span className="text-xs font-bold opacity-70 uppercase">seconds</span>
+                {secondsElapsed}{' '}
+                <span className="text-xs font-bold opacity-70 uppercase">seconds</span>
               </span>
             </div>
 
             <div className="flex gap-2.5 w-full sm:w-auto">
               {!timerActive ? (
-                <button 
-                  onClick={startLiveTask} 
+                <button
+                  type="button"
+                  onClick={startLiveTask}
                   className={`w-full sm:w-auto py-3 px-6 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 ${accentSolid}`}
                 >
                   <Play className="w-3.5 h-3.5" />
                   <span>Start Task Timer</span>
                 </button>
               ) : (
-                <button 
-                  onClick={endLiveTask} 
+                <button
+                  type="button"
+                  onClick={endLiveTask}
                   className={`w-full sm:w-auto py-3 px-6 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm transition-all hover:opacity-90 border ${borderTone} ${cardInnerBg} flex items-center justify-center gap-2`}
                 >
                   <Square className="w-3.5 h-3.5" />
@@ -251,13 +327,20 @@ export default function EmpiricalDashboard() {
         </section>
 
         {/* SECTION 2: Baseline Comparison Matrix */}
-        <section className={`p-6 sm:p-7 rounded-xl border ${borderTone} mb-8 shadow-sm ${cardBg}`}>
-          <div className="flex items-center justify-between mb-4 border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+        <section
+          className={`p-6 sm:p-7 rounded-xl border ${borderTone} mb-8 shadow-sm ${cardBg}`}
+        >
+          <div
+            className="flex items-center justify-between mb-4 border-b pb-3"
+            style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}
+          >
             <h2 className="text-xs font-mono font-bold uppercase tracking-widest opacity-80 flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               Scientific Baseline Comparison Matrix
             </h2>
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${borderTone} ${cardInnerBg}`}>
+            <span
+              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${borderTone} ${cardInnerBg}`}
+            >
               AGGREGATED DATA
             </span>
           </div>
@@ -267,12 +350,21 @@ export default function EmpiricalDashboard() {
               <thead>
                 <tr className={`border-b ${borderTone} ${cardInnerBg}`}>
                   <th className="p-3 font-bold uppercase tracking-wider">Evaluation Method</th>
-                  <th className="p-3 text-center font-bold uppercase tracking-wider">Avg Completion Time</th>
-                  <th className="p-3 text-center font-bold uppercase tracking-wider">Avg Interaction Count</th>
-                  <th className="p-3 text-center font-bold uppercase tracking-wider">Task Success Rate</th>
+                  <th className="p-3 text-center font-bold uppercase tracking-wider">
+                    Avg Completion Time
+                  </th>
+                  <th className="p-3 text-center font-bold uppercase tracking-wider">
+                    Avg Interaction Count
+                  </th>
+                  <th className="p-3 text-center font-bold uppercase tracking-wider">
+                    Task Success Rate
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y" style={{ borderColor: isDarkTheme ? '#AB92BF20' : '#655A7C15' }}>
+              <tbody
+                className="divide-y"
+                style={{ borderColor: isDarkTheme ? '#AB92BF20' : '#655A7C15' }}
+              >
                 <tr className="transition-colors hover:opacity-90">
                   <td className="p-3 font-bold flex items-center gap-2">
                     <Sparkles className="w-3.5 h-3.5 shrink-0" />
@@ -284,7 +376,9 @@ export default function EmpiricalDashboard() {
                 </tr>
                 <tr className="transition-colors hover:opacity-90">
                   <td className="p-3 font-bold flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 flex items-center justify-center font-mono">•</span>
+                    <span className="w-3.5 h-3.5 flex items-center justify-center font-mono">
+                      •
+                    </span>
                     <span>Traditional Text / Paper</span>
                   </td>
                   <td className="p-3 text-center font-bold">{traditionalStats.time}s</td>
@@ -297,36 +391,58 @@ export default function EmpiricalDashboard() {
         </section>
 
         {/* SECTION 3: Raw Logs Audit History */}
-        <section className={`p-6 sm:p-7 rounded-xl border ${borderTone} shadow-sm ${cardBg}`}>
-          <div className="flex justify-between items-center mb-4 border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+        <section
+          className={`p-6 sm:p-7 rounded-xl border ${borderTone} shadow-sm ${cardBg}`}
+        >
+          <div
+            className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 border-b pb-3"
+            style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}
+          >
             <h2 className="text-xs font-mono font-bold uppercase tracking-widest opacity-80 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4" />
               Evaluation Run Logs ({evaluationLogs.length})
             </h2>
+
             {evaluationLogs.length > 0 && (
-              <button 
-                onClick={clearLogs} 
-                className="text-[11px] font-mono font-bold uppercase tracking-wider hover:opacity-75 transition-opacity inline-flex items-center gap-1"
-              >
-                <Trash2 className="w-3 h-3" />
-                <span>Clear Records</span>
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={exportCSV}
+                  className={`text-[11px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded border ${borderTone} ${cardInnerBg} hover:opacity-75 transition-all inline-flex items-center gap-1.5`}
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Export CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={clearLogs}
+                  className={`text-[11px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded border ${borderTone} ${cardInnerBg} hover:opacity-75 transition-all inline-flex items-center gap-1.5`}
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Clear Records</span>
+                </button>
+              </div>
             )}
           </div>
 
           {evaluationLogs.length === 0 ? (
-            <div className={`text-center py-8 text-xs font-mono font-bold rounded-lg border border-dashed ${borderTone} ${cardInnerBg} opacity-70`}>
-              No empirical evaluation runs logged yet. Start the task runner clock above to generate benchmark data.
+            <div
+              className={`text-center py-8 text-xs font-mono font-bold rounded-lg border border-dashed ${borderTone} ${cardInnerBg} opacity-70`}
+            >
+              No empirical evaluation runs logged yet. Start the task runner clock above to
+              generate benchmark data.
             </div>
           ) : (
             <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
               {evaluationLogs.map((log) => (
-                <div 
-                  key={log.id} 
+                <div
+                  key={log.id}
                   className={`p-3.5 rounded-lg border ${borderTone} flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs font-mono font-bold gap-2 ${cardInnerBg}`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase border ${borderTone} ${cardBg}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] uppercase border ${borderTone} ${cardBg}`}
+                    >
                       {log.method}
                     </span>
                     <span className="tracking-tight">{log.scenarioName}</span>
@@ -341,13 +457,16 @@ export default function EmpiricalDashboard() {
             </div>
           )}
         </section>
-
       </main>
 
       {/* Footer System Boundary */}
-      <footer className={`border-t py-6 px-4 sm:px-6 lg:px-8 ${borderTone} ${cardInnerBg}`}>
+      <footer
+        className={`border-t py-6 px-4 sm:px-6 lg:px-8 ${borderTone} ${cardInnerBg}`}
+      >
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center text-xs font-mono gap-3">
-          <p className="font-bold">SignMitra Metrics Laboratory • Counter-Balanced Task Matrix Enabled</p>
+          <p className="font-bold">
+            SignMitra Metrics Laboratory • Counter-Balanced Task Matrix Enabled
+          </p>
           <div className="flex items-center gap-2 font-medium">
             <span
               className={`w-2 h-2 rounded-full animate-pulse ${
@@ -358,7 +477,6 @@ export default function EmpiricalDashboard() {
           </div>
         </div>
       </footer>
-
     </div>
   );
 }

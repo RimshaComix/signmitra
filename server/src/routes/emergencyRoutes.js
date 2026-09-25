@@ -29,13 +29,19 @@ router.post('/profile', async (req, res) => {
     const updatedProfile = await EmergencyProfile.findOneAndUpdate(
       { userId },
       {
-        name,
-        emergencyContact,
+        userId,
+        name: name.trim(),
+        emergencyContact: emergencyContact.trim(),
         bloodGroup,
-        allergies: allergies || 'None declared.',
-        criticalMedicalInfo: criticalMedicalInfo || 'No existing conditions declared.'
+        allergies: allergies?.trim() || 'None declared.',
+        criticalMedicalInfo: criticalMedicalInfo?.trim() || 'No existing conditions declared.'
       },
-      { new: true, upsert: true, runValidators: true }
+      { 
+        new: true, 
+        upsert: true, 
+        runValidators: true, 
+        setDefaultsOnInsert: true 
+      }
     );
 
     return res.status(200).json(updatedProfile);

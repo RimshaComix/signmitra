@@ -1,24 +1,22 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const emergencyRoutes = require('./routes/emergencyRoutes');
 
-// Import your custom domain routers matching the blueprint layout
+// Import domain routers
+const emergencyRoutes = require('./routes/emergencyRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use('/api/emergency', emergencyRoutes);
-
-// 🔒 Privacy Data Minimization & Security Middleware
+// 1. Core Security & Parsing Middleware (MUST be declared before routes)
 app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:3000', // Permits clean Next.js dashboard interactions
+  origin: process.env.CLIENT_ORIGIN || 'http://localhost:3000',
   optionsSuccessStatus: 200
 }));
-app.use(express.json()); // Parses incoming json request structures safely
+app.use(express.json());
 
-// Structured Observability Logging Middleware matching Section 22
+// 2. Structured Observability Logging Middleware
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
@@ -28,10 +26,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Mount the API endpoint branches
+// 3. Mount API Route Branches
+app.use('/api/emergency', emergencyRoutes);
 app.use('/api/sessions', sessionRoutes);
 
-// Base System Status Route
+// 4. Base System Status / Health Check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'online', 
@@ -40,12 +39,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Fallback Route for non-matching endpoints
+// 5. 404 Fallback Route
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint routing parameters unrecognized.' });
 });
 
-// Connect to MongoDB Database Engine safely
+// 6. Connect to MongoDB Database Engine & Start Server
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/signmitra';
 
 mongoose.connect(MONGODB_URI)

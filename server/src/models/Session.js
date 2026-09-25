@@ -4,8 +4,8 @@ const SessionSchema = new mongoose.Schema({
   sessionId: { 
     type: String, 
     required: true, 
-    unique: true, 
-    index: true 
+    unique: true,
+    trim: true 
   },
   domain: { 
     type: String, 
@@ -14,7 +14,8 @@ const SessionSchema = new mongoose.Schema({
   },
   intent: { 
     type: String, 
-    required: true 
+    required: true,
+    trim: true 
   },
   currentState: { 
     type: String, 
@@ -24,18 +25,17 @@ const SessionSchema = new mongoose.Schema({
   },
   historyStates: [{ 
     type: String 
-  }], // Array history to drive exact step-by-step "BACK" operations
+  }],
   entities: { 
     type: Map, 
     of: mongoose.Schema.Types.Mixed, 
     default: {} 
-  }, // Flexible key-value collector for dynamic fields
+  },
   staffResponse: {
-    selectedOption: { type: String },
-    customText: { type: String },
+    selectedOption: { type: String, trim: true },
+    customText: { type: String, trim: true },
     respondedAt: { type: Date }
   },
-  // 🔒 Blueprint Section 13 Privacy Rule: Automatic lifecycle expiration (e.g., expires after 1 hour)
   expiresAt: { 
     type: Date, 
     required: true, 

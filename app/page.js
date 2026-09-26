@@ -359,9 +359,10 @@ export default function Home() {
               {['healthcare', 'education', 'banking'].map((domain) => (
                 <button
                   key={domain}
+                  type="button"
                   onClick={() => setActiveDomain(domain)}
                   className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${activeDomain === domain
-                      ? accentSolid + ' shadow-sm'
+                      ? `${accentSolid} shadow-sm`
                       : 'opacity-70 hover:opacity-100'
                     }`}
                 >
@@ -373,10 +374,12 @@ export default function Home() {
 
           {/* Domain Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Healthcare Card */}
             <div
-              className={`p-6 rounded-xl border transition-all ${cardBg} ${activeDomain === 'healthcare'
-                  ? `border-[#655A7C] ring-2 ring-[#655A7C]/40 shadow-md`
-                  : borderTone
+              onClick={() => setActiveDomain('healthcare')}
+              className={`p-6 rounded-xl border transition-all cursor-pointer ${cardBg} ${activeDomain === 'healthcare'
+                  ? 'border-[#655A7C] ring-2 ring-[#655A7C] shadow-lg scale-[1.02]'
+                  : `${borderTone} opacity-60 hover:opacity-100`
                 }`}
             >
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold mb-5 ${accentSolid}`}>
@@ -391,10 +394,12 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Education Card */}
             <div
-              className={`p-6 rounded-xl border transition-all ${cardBg} ${activeDomain === 'education'
-                  ? `border-[#655A7C] ring-2 ring-[#655A7C]/40 shadow-md`
-                  : borderTone
+              onClick={() => setActiveDomain('education')}
+              className={`p-6 rounded-xl border transition-all cursor-pointer ${cardBg} ${activeDomain === 'education'
+                  ? 'border-[#655A7C] ring-2 ring-[#655A7C] shadow-lg scale-[1.02]'
+                  : `${borderTone} opacity-60 hover:opacity-100`
                 }`}
             >
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold mb-5 ${accentSolid}`}>
@@ -409,10 +414,12 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Banking Card */}
             <div
-              className={`p-6 rounded-xl border transition-all ${cardBg} ${activeDomain === 'banking'
-                  ? `border-[#655A7C] ring-2 ring-[#655A7C]/40 shadow-md`
-                  : borderTone
+              onClick={() => setActiveDomain('banking')}
+              className={`p-6 rounded-xl border transition-all cursor-pointer ${cardBg} ${activeDomain === 'banking'
+                  ? 'border-[#655A7C] ring-2 ring-[#655A7C] shadow-lg scale-[1.02]'
+                  : `${borderTone} opacity-60 hover:opacity-100`
                 }`}
             >
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold mb-5 ${accentSolid}`}>
@@ -570,8 +577,8 @@ export default function Home() {
                       key={time}
                       onClick={() => handleSelectTime(time)}
                       className={`px-3.5 py-1.5 rounded text-xs font-mono font-bold transition-all border ${selectedTime === time
-                          ? `${accentSolid} ring-1 ring-[#655A7C]`
-                          : `${cardBg}${borderTone} hover:opacity-80`
+                        ? `${accentSolid} ring-1 ring-[#655A7C]`
+                        : `${cardBg}${borderTone} hover:opacity-80`
                         }`}
                     >
                       {time}
@@ -615,8 +622,8 @@ export default function Home() {
                       onClick={handleConfirmSimulation}
                       disabled={!selectedTime}
                       className={`px-4 py-1.5 rounded font-bold text-xs font-mono transition-all border ${selectedTime
-                          ? `${accentSolid} cursor-pointer hover:opacity-90`
-                          : `opacity-40 cursor-not-allowed ${borderTone}`
+                        ? `${accentSolid} cursor-pointer hover:opacity-90`
+                        : `opacity-40 cursor-not-allowed ${borderTone}`
                         }`}
                     >
                       [ Confirm ]

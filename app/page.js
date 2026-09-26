@@ -108,26 +108,6 @@ export default function Home() {
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans antialiased selection:bg-[#655A7C] selection:text-[#FDF1E2] ${bgCanvas} ${textPrimary}`}>
 
-      {/* Global Train Marquee Keyframes */}
-      <style jsx global>{`
-        @keyframes marqueeTrain {
-          0% {
-            transform: translateX(0%);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-        .train-marquee {
-          display: flex;
-          width: max-content;
-          animation: marqueeTrain 38s linear infinite;
-        }
-        .train-marquee:hover {
-          animation-play-state: paused;
-        }
-      `}</style>
-
       {/* Sticky Header Navbar */}
       <header className={`sticky top-0 z-40 backdrop-blur-md border-b ${borderTone} ${isDarkTheme ? 'bg-[#655A7C]/95' : 'bg-[#FDF1E2]/95'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

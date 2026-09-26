@@ -53,3 +53,22 @@ html {
   scrollbar-width: thin;
   scrollbar-color: #9ca3af #f3f4f6;
 }
+
+@keyframes marqueeTrain {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.train-marquee {
+  display: flex;
+  width: max-content;
+  animation: marqueeTrain 38s linear infinite;
+}
+
+.train-marquee:hover {
+  animation-play-state: paused;
+}

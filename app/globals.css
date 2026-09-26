@@ -72,3 +72,27 @@ html {
 .train-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Global Site-Wide Theme Selection (Overrides Browser Blue) */
+::selection {
+  background-color: #655A7C !important;
+  color: #FDF1E2 !important;
+}
+
+::-moz-selection {
+  background-color: #655A7C !important;
+  color: #FDF1E2 !important;
+}
+
+/* Invert selection when in dark theme mode */
+.dark ::selection,
+[data-theme="dark"] ::selection {
+  background-color: #FDF1E2 !important;
+  color: #655A7C !important;
+}
+
+.dark ::-moz-selection,
+[data-theme="dark"] ::-moz-selection {
+  background-color: #FDF1E2 !important;
+  color: #655A7C !important;
+}

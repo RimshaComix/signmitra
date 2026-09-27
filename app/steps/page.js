@@ -14,7 +14,8 @@ import {
   ChevronRight,
   ShieldAlert,
   Filter,
-  RotateCcw
+  RotateCcw,
+  Video
 } from 'lucide-react';
 
 const CATEGORIES = ['All Guides', 'Healthcare', 'Banking', 'Education', 'Public Services', 'Travel & Everyday'];
@@ -29,7 +30,12 @@ const GUIDES = {
     icon: '🏥',
     description: 'Get assistance with outpatient registration and finding the consultation area.',
     steps: [
-      { action: 'Look for the OPD registration or enquiry desk. If unsure, ask a staff member to direct you.', show: '"I need help with OPD registration. Could you please show me the correct counter?"', expect: 'Staff will point you to the correct desk.' },
+      { 
+        action: 'Look for the OPD registration or enquiry desk. If unsure, ask a staff member to direct you.', 
+        show: '"I need help with OPD registration. Could you please show me the correct counter?"', 
+        expect: 'Staff will point you to the correct desk.',
+        videoUrl: '/placeholder-isl-hospital-1.mp4' // Placeholder for ISL explanation
+      },
       { action: 'Ask which details or documents are needed for registration.', show: '"What information or documents do I need to provide?"', expect: 'They will ask for your ID or existing referral documents.' },
       { action: 'Follow the instructions given by the registration staff. Ask for help if a form or field is unclear.', show: '"Could you please explain this section to me?"', expect: 'Staff will help you complete the required sections and take the fee.' },
       { action: 'Check the patient number, token, or registration slip provided. Ask where to wait.', show: '"Where should I wait, and how will I know when it is my turn?"', expect: 'They will hand you a file/token and point to the waiting area.' }
@@ -93,9 +99,14 @@ const GUIDES = {
     icon: '🏦',
     description: 'Ask bank staff about updating identity or address information.',
     steps: [
-      { action: 'Ask staff where KYC-related requests are handled.', show: '"I need help updating my KYC details. Could you please direct me to the correct desk?"', expect: 'They will point you to the help desk or a specific counter.' },
+      { 
+        action: 'Ask staff where KYC-related requests are handled.', 
+        show: '"I need help updating my KYC details. Could you please direct me to the correct desk?"', 
+        expect: 'They will point you to the help desk or a specific counter.',
+        videoUrl: '/placeholder-isl-bank-1.mp4'
+      },
       { action: 'Tell staff whether the request concerns address, identity details, or another field.', show: '"I would like to update my address details. Could you please explain the process?"', expect: 'They will hand you a KYC update form.' },
-      { action: 'Ask which documents or forms are currently required.', show: '"Which documents do I need to provide? Could you please write the requirements down?"', expect: 'They will list the needed ID proofs (like Aadhaar or PAN) and ask for photocopies.' },
+      { action: 'Ask which documents or forms are currently required.', show: '"Which documents do I need to provide? Could you please write the requirements down?"', expect: 'They will list the needed ID proofs and ask for photocopies.' },
       { action: 'Ask whether the request has been received and whether any further action is needed.', show: '"Has my request been received? Is there anything else I need to do?"', expect: 'They will stamp your form and confirm the processing time.' }
     ]
   },
@@ -157,7 +168,12 @@ const GUIDES = {
     icon: '🎓',
     description: 'Ask the examination office about semester exam registration.',
     steps: [
-      { action: 'Ask campus staff where exam-form enquiries are handled.', show: '"I need help with my semester examination form. Could you please direct me to the examination office?"', expect: 'They will point you to the exam cell or department admin.' },
+      { 
+        action: 'Ask campus staff where exam-form enquiries are handled.', 
+        show: '"I need help with my semester examination form. Could you please direct me to the examination office?"', 
+        expect: 'They will point you to the exam cell or department admin.',
+        videoUrl: '/placeholder-isl-edu-1.mp4'
+      },
       { action: 'Ask which form, details, documents, or fee are required.', show: '"Could you please tell me the current requirements and submission deadline?"', expect: 'They will outline the needed signatures (like HOD) and fee receipts.' },
       { action: 'Follow the official instructions and check your details.', show: '"Could you please help me check whether I have completed this form correctly?"', expect: 'The clerk will review the fields for missing information.' },
       { action: 'Submit the form and ask whether it has been received.', show: '"Has my form been received? Do I need to complete any other step?"', expect: 'They will tear off a receipt slip, stamp it, and hand it to you.' }
@@ -289,6 +305,7 @@ export default function VisualStepByStep() {
   const [activeGuideKey, setActiveGuideKey] = useState(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
 
   const filteredGuides = Object.entries(GUIDES).filter(([_, guide]) => 
     activeCategory === 'All Guides' || guide.category === activeCategory
@@ -298,16 +315,20 @@ export default function VisualStepByStep() {
     setActiveGuideKey(key);
     setCurrentStepIndex(0);
     setIsCompleted(false);
+    setShowVideo(false);
   };
 
   const handleNextStep = () => {
     const guide = GUIDES[activeGuideKey];
     if (currentStepIndex < guide.steps.length - 1) {
       setCurrentStepIndex(prev => prev + 1);
+      setShowVideo(false);
     } else {
       setIsCompleted(true);
     }
   };
+
+  const currentStep = activeGuideKey ? GUIDES[activeGuideKey].steps[currentStepIndex] : null;
 
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans antialiased flex flex-col ${bgCanvas} ${textPrimary}`}>
@@ -427,12 +448,42 @@ export default function VisualStepByStep() {
               aria-live="polite"
             >
               {/* Main Instruction */}
-              <div className="p-6 sm:p-8 flex-1 flex flex-col justify-center border-b" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 mb-2 block">Action Required:</span>
+              <div className="p-6 sm:p-8 flex-1 flex flex-col justify-center border-b relative" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 block">Action Required:</span>
+                  {currentStep.videoUrl && (
+                    <button 
+                      onClick={() => setShowVideo(!showVideo)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none ${showVideo ? accentSolid + ' border-transparent' : `${borderTone}${cardInnerBg} hover:opacity-80`}`}
+                      aria-expanded={showVideo}
+                      aria-controls="isl-video-container"
+                    >
+                      <Video className="w-3 h-3" aria-hidden="true" />
+                      {showVideo ? 'Hide ISL Video' : 'View in ISL'}
+                    </button>
+                  )}
+                </div>
                 <h2 className="text-2xl sm:text-3xl font-black leading-snug tracking-tight">
-                  {GUIDES[activeGuideKey].steps[currentStepIndex].action}
+                  {currentStep.action}
                 </h2>
               </div>
+              
+              {/* ISL Video Container */}
+              {showVideo && currentStep.videoUrl && (
+                <div id="isl-video-container" className={`p-4 bg-black animate-in slide-in-from-top-2 duration-200 border-b ${borderTone}`}>
+                  <div className="aspect-video w-full rounded-lg bg-gray-900 flex items-center justify-center relative overflow-hidden group border border-white/10">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                      <span className="text-white text-xs font-mono font-bold uppercase tracking-wider opacity-80 flex items-center gap-2">
+                        <Video className="w-4 h-4" /> Placeholder: Community-Reviewed ISL Guide
+                      </span>
+                    </div>
+                    {/* Placeholder for actual <video> element */}
+                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Play className="w-5 h-5 text-white ml-1" />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Sub-instructions */}
               <div className={`p-5 sm:p-6 bg-black/5 dark:bg-white/5 space-y-5`}>
@@ -442,7 +493,7 @@ export default function VisualStepByStep() {
                   </div>
                   <div>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1">Show Staff:</span>
-                    <p className="font-bold text-sm sm:text-base">{GUIDES[activeGuideKey].steps[currentStepIndex].show}</p>
+                    <p className="font-bold text-sm sm:text-base">{currentStep.show}</p>
                   </div>
                 </div>
 
@@ -452,7 +503,7 @@ export default function VisualStepByStep() {
                   </div>
                   <div>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1">What to expect:</span>
-                    <p className="font-bold text-sm sm:text-base">{GUIDES[activeGuideKey].steps[currentStepIndex].expect}</p>
+                    <p className="font-bold text-sm sm:text-base">{currentStep.expect}</p>
                   </div>
                 </div>
               </div>
@@ -462,7 +513,7 @@ export default function VisualStepByStep() {
             <div className="flex gap-2.5 mt-5">
               {currentStepIndex > 0 && (
                 <button
-                  onClick={() => setCurrentStepIndex(prev => prev - 1)}
+                  onClick={() => { setCurrentStepIndex(prev => prev - 1); setShowVideo(false); }}
                   className={`py-3.5 px-4 rounded-xl border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all font-mono font-bold text-xs uppercase tracking-wider shrink-0 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
                   aria-label="Go to previous step"
                 >
@@ -501,7 +552,7 @@ export default function VisualStepByStep() {
                 Create Follow-Up
               </Link>
               <button
-                onClick={() => { setCurrentStepIndex(0); setIsCompleted(false); }}
+                onClick={() => { setCurrentStepIndex(0); setIsCompleted(false); setShowVideo(false); }}
                 className={`w-full py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-widest hover:opacity-80 transition-all flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
                 aria-label="Review steps from beginning"
               >

@@ -20,7 +20,12 @@ import {
   X,
   CalendarClock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  MapPin,
+  FileText,
+  CreditCard,
+  ListTodo
 } from 'lucide-react';
 
 const REPAIR_PHRASES = [
@@ -29,6 +34,14 @@ const REPAIR_PHRASES = [
   "Could you write that down clearly?",
   "Please communicate one step at a time.",
   "Let's confirm the important details."
+];
+
+const DETAIL_TYPES = [
+  { id: 'datetime', label: 'Date & Time', icon: Clock },
+  { id: 'location', label: 'Room / Counter', icon: MapPin },
+  { id: 'document', label: 'Required Document', icon: FileText },
+  { id: 'amount', label: 'Amount / Fee', icon: CreditCard },
+  { id: 'action', label: 'Next Action', icon: ListTodo }
 ];
 
 export default function ConversationAssist() {
@@ -50,16 +63,12 @@ export default function ConversationAssist() {
   
   const [showRepairToolkit, setShowRepairToolkit] = useState(false);
   const [showConfirmBack, setShowConfirmBack] = useState(false);
-  const [confirmBackText, setConfirmBackText] = useState('');
-
-  // Confirmation Model State
-  const [sessionVerified, setSessionVerified] = useState(false);
+  
+  // Detail-by-Detail Confirm State
+  const [confirmDetailType, setConfirmDetailType] = useState(DETAIL_TYPES[4].id);
+  const [confirmDetailValue, setConfirmDetailValue] = useState('');
 
   const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [summaryAsked, setSummaryAsked] = useState('');
-  const [summaryReplied, setSummaryReplied] = useState('');
-  const [summaryNextAction, setSummaryNextAction] = useState('');
-  const [summaryDate, setSummaryDate] = useState('');
   const [addToPlanner, setAddToPlanner] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   
@@ -69,44 +78,49 @@ export default function ConversationAssist() {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, showRepairToolkit, showConfirmBack]);
 
-  const handleUserMessage = (textToSend = null, isConfirmBack = false, isToolkit = false) => {
+  const handleUserMessage = (textToSend = null, isToolkit = false) => {
     const content = textToSend || userText;
-    if (!content.trim() && !isConfirmBack) return;
-
-    let finalContent = content.trim();
-
-    if (isConfirmBack) {
-      if (!confirmBackText.trim()) return;
-      finalContent = `Please confirm:\n"I understood that ${confirmBackText.trim()}"\n\nIs this correct?`;
-    } 
+    if (!content.trim()) return;
 
     const newMessage = {
       id: Date.now(),
       sender: 'user',
-      text: finalContent,
-      isConfirmBackRequest: isConfirmBack,
+      text: content.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     setMessages(prev => [...prev, newMessage]);
     setUserText('');
-    setConfirmBackText('');
-    setShowConfirmBack(false);
     setShowRepairToolkit(false);
-    
-    // If the user asks a new clarifying question, we reset the verification state
-    if (isConfirmBack || isToolkit) {
-      setSessionVerified(false);
-    }
   };
 
-  const handleStaffMessage = (replyText = null, isExplicitVerification = false) => {
+  const handleDetailConfirmRequest = () => {
+    if (!confirmDetailValue.trim()) return;
+
+    const typeObj = DETAIL_TYPES.find(t => t.id === confirmDetailType);
+    
+    const newMessage = {
+      id: Date.now(),
+      sender: 'user',
+      text: `Please confirm this detail:\n[${typeObj.label}] ${confirmDetailValue.trim()}`,
+      isConfirmBackRequest: true,
+      confirmData: {
+        typeId: confirmDetailType,
+        typeLabel: typeObj.label,
+        value: confirmDetailValue.trim(),
+        status: 'pending' // pending, confirmed, clarification_needed
+      },
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setMessages(prev => [...prev, newMessage]);
+    setConfirmDetailValue('');
+    setShowConfirmBack(false);
+  };
+
+  const handleStaffMessage = (replyText = null) => {
     const content = replyText || staffText;
     if (!content.trim()) return;
-
-    if (isExplicitVerification) {
-      setSessionVerified(true);
-    }
 
     const staffMessage = {
       id: Date.now(),
@@ -118,10 +132,28 @@ export default function ConversationAssist() {
     setStaffText('');
   };
 
+  const handleStaffDetailVerification = (msgId, verificationStatus) => {
+    setMessages(prev => prev.map(msg => {
+      if (msg.id === msgId && msg.isConfirmBackRequest) {
+        return {
+          ...msg,
+          confirmData: { ...msg.confirmData, status: verificationStatus }
+        };
+      }
+      return msg;
+    }));
+
+    // Auto-generate a staff reply based on their verification click
+    const autoReply = verificationStatus === 'confirmed' 
+      ? "Yes, that detail is correct." 
+      : "No, that is incorrect. Let me clarify.";
+    
+    handleStaffMessage(autoReply);
+  };
+
   const clearConversation = () => {
     if (confirm("Clear this conversation history?")) {
       setMessages([]);
-      setSessionVerified(false); 
     }
   };
 
@@ -140,15 +172,8 @@ export default function ConversationAssist() {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
-    const savedVoiceURI = localStorage.getItem('signmitra_preferred_voice');
-
-    if (savedVoiceURI) {
-      const selected = voices.find(v => v.voiceURI === savedVoiceURI);
-      if (selected) utterance.voice = selected;
-    } else {
-      const preferredVoice = voices.find(v => v.lang.includes('en-IN') || v.lang.includes('en-US') || v.lang.includes('en-GB'));
-      if (preferredVoice) utterance.voice = preferredVoice;
-    }
+    const preferredVoice = voices.find(v => v.lang.includes('en-IN') || v.lang.includes('en-GB')) || voices[0];
+    if (preferredVoice) utterance.voice = preferredVoice;
 
     utterance.onstart = () => setSpeakingId(id);
     utterance.onend = () => setSpeakingId(null);
@@ -157,47 +182,73 @@ export default function ConversationAssist() {
     window.speechSynthesis.speak(utterance);
   };
 
+  // Derive verified details from the message array for the summary modal
+  const getExtractedDetails = () => {
+    const details = [];
+    messages.forEach(msg => {
+      if (msg.isConfirmBackRequest && msg.confirmData) {
+        // Find if it already exists, replace with latest status
+        const existingIdx = details.findIndex(d => d.typeId === msg.confirmData.typeId && d.value === msg.confirmData.value);
+        if (existingIdx >= 0) {
+          details[existingIdx] = msg.confirmData;
+        } else {
+          details.push(msg.confirmData);
+        }
+      }
+    });
+    return details;
+  };
+
   const handleSaveSummary = (e) => {
     e.preventDefault();
-    if (!summaryAsked.trim() && !summaryReplied.trim()) return;
+    const details = getExtractedDetails();
+    if (details.length === 0) {
+      alert("No structured details to save yet. Try confirming a detail first.");
+      return;
+    }
+
+    // Determine overall verification (only if ALL captured details are confirmed)
+    const allVerified = details.every(d => d.status === 'confirmed');
+    const entities = {};
+    details.forEach(d => {
+      entities[d.typeLabel] = `${d.value} ${d.status === 'confirmed' ? '(Verified)' : '(Unverified)'}`;
+    });
+
+    const primaryAction = details.find(d => d.typeId === 'action')?.value || 'Review saved details';
+    const primaryDate = details.find(d => d.typeId === 'datetime')?.value || new Date().toISOString().split('T')[0];
 
     const historyItem = {
       id: `REQ-${Date.now()}`,
-      domain: 'CUSTOM CONVERSATION',
-      intent: 'live_chat',
-      title: 'User-Captured Chat Summary',
+      domain: 'GRANULAR CONVERSATION',
+      intent: 'live_chat_details',
+      title: 'Detailed Chat Summary',
       date: new Date().toLocaleDateString(),
       time: new Date().toLocaleTimeString(),
       status: addToPlanner ? 'Follow-Up Planned' : 'Summarized',
-      verifiedByStaff: sessionVerified,
-      entities: { 
-        'What I Asked': summaryAsked.trim() || 'N/A', 
-        'What They Said': summaryReplied.trim() || 'N/A',
-        'Next Action': summaryNextAction.trim() || 'N/A',
-        'Target Date': summaryDate || 'N/A'
-      },
-      staffResponse: summaryNextAction.trim() || 'No explicit next steps.'
+      verifiedByStaff: allVerified, 
+      entities: entities,
+      staffResponse: primaryAction
     };
 
     try {
       const existingHistory = JSON.parse(localStorage.getItem('signmitra_history') || '[]');
       localStorage.setItem('signmitra_history', JSON.stringify([historyItem, ...existingHistory]));
 
-      if (addToPlanner && summaryNextAction.trim()) {
+      if (addToPlanner) {
         const followUpItem = {
           id: `FOLLOW-${Date.now()}`,
-          title: 'Follow-Up from Chat',
-          situation: summaryAsked.trim(),
+          title: 'Follow-Up from Detailed Chat',
+          situation: 'Chat interaction tracking',
           category: 'Other',
           type: 'General Task',
-          nextAction: summaryNextAction.trim(),
+          nextAction: primaryAction,
           contactPerson: '',
           contactDetails: '',
-          dueDate: summaryDate || new Date().toISOString().split('T')[0],
+          dueDate: primaryDate,
           priority: 'Normal',
           status: 'Planned',
-          verifiedByStaff: sessionVerified,
-          notes: summaryReplied.trim(),
+          verifiedByStaff: allVerified,
+          notes: JSON.stringify(entities, null, 2),
           checklist: [],
           progressUpdates: []
         };
@@ -209,10 +260,6 @@ export default function ConversationAssist() {
       setTimeout(() => {
         setSaveSuccess(false);
         setShowSummaryModal(false);
-        setSummaryAsked('');
-        setSummaryReplied('');
-        setSummaryNextAction('');
-        setSummaryDate('');
         setAddToPlanner(false);
       }, 1500);
 
@@ -220,6 +267,9 @@ export default function ConversationAssist() {
       console.error("Local storage save error:", err);
     }
   };
+
+  const extractedDetails = getExtractedDetails();
+  const fullyVerifiedSession = extractedDetails.length > 0 && extractedDetails.every(d => d.status === 'confirmed');
 
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans antialiased flex flex-col justify-between ${bgCanvas} ${textPrimary}`}>
@@ -286,16 +336,15 @@ export default function ConversationAssist() {
               <form onSubmit={handleSaveSummary} className="space-y-5">
                 <div className="flex justify-between items-start border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
                   <div>
-                    <h2 id="summary-modal-title" className="text-xl font-black uppercase tracking-tight">Capture Summary</h2>
-                    {/* Explicit Verification Badge UI */}
+                    <h2 id="summary-modal-title" className="text-xl font-black uppercase tracking-tight">Structured Summary</h2>
                     <div className="flex items-center mt-1">
-                      {sessionVerified ? (
-                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-green-600 dark:text-green-400 flex items-center gap-1.5" aria-label="Staff Verified Status">
-                           <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> Staff Verified
+                      {fullyVerifiedSession ? (
+                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-green-600 dark:text-green-400 flex items-center gap-1.5" aria-label="Fully Staff Verified">
+                           <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" /> All Details Verified
                          </span>
                       ) : (
-                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 flex items-center gap-1.5" aria-label="Unverified Status">
-                           <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" /> Unverified / User Entered
+                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 flex items-center gap-1.5" aria-label="Mixed or Unverified Status">
+                           <AlertCircle className="w-3.5 h-3.5" aria-hidden="true" /> Contains Unverified Data
                          </span>
                       )}
                     </div>
@@ -311,56 +360,40 @@ export default function ConversationAssist() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label htmlFor="summaryAsked" className="text-xs font-mono font-bold uppercase tracking-wider block">What I Asked / Needed</label>
-                    <textarea
-                      id="summaryAsked"
-                      required
-                      value={summaryAsked}
-                      onChange={(e) => setSummaryAsked(e.target.value)}
-                      placeholder="e.g., Asked for the scholarship form..."
-                      rows={2}
-                      className={`p-3 w-full font-medium border rounded-lg text-sm outline-none transition-colors ${cardBg} ${borderTone} focus:border-[#655A7C] focus-visible:ring-2 focus-visible:ring-[#655A7C]`}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label htmlFor="summaryReplied" className="text-xs font-mono font-bold uppercase tracking-wider block">What They Said</label>
-                    <textarea
-                      id="summaryReplied"
-                      value={summaryReplied}
-                      onChange={(e) => setSummaryReplied(e.target.value)}
-                      placeholder="e.g., The form is online only now..."
-                      rows={2}
-                      className={`p-3 w-full font-medium border rounded-lg text-sm outline-none transition-colors ${cardBg} ${borderTone} focus:border-[#655A7C] focus-visible:ring-2 focus-visible:ring-[#655A7C]`}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label htmlFor="summaryNextAction" className="text-xs font-mono font-bold uppercase tracking-wider block">Next Action / To-Do</label>
-                    <input
-                      id="summaryNextAction"
-                      type="text"
-                      value={summaryNextAction}
-                      onChange={(e) => setSummaryNextAction(e.target.value)}
-                      placeholder="e.g., Download and print the PDF"
-                      className={`p-3 w-full font-bold border rounded-lg text-sm outline-none transition-colors ${cardBg} ${borderTone} focus:border-[#655A7C] focus-visible:ring-2 focus-visible:ring-[#655A7C]`}
-                    />
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-3 items-end">
-                    <div className="flex-1 w-full space-y-1.5">
-                      <label htmlFor="summaryDate" className="text-xs font-mono font-bold uppercase tracking-wider block">Date Mentioned</label>
-                      <input
-                        id="summaryDate"
-                        type="date"
-                        value={summaryDate}
-                        onChange={(e) => setSummaryDate(e.target.value)}
-                        onClick={(e) => e.target.showPicker?.()}
-                        className={`p-3 w-full font-bold border rounded-lg text-sm outline-none transition-colors ${cardBg} ${borderTone} cursor-pointer focus-visible:ring-2 focus-visible:ring-[#655A7C]`}
-                      />
+                  {extractedDetails.length === 0 ? (
+                    <div className={`p-6 text-center border border-dashed ${borderTone} rounded-xl opacity-70`}>
+                      <p className="text-xs font-mono font-bold uppercase tracking-wider">No details confirmed yet.</p>
+                      <p className="text-[10px] mt-1">Use the "Confirm Understanding" tool to track specific details.</p>
                     </div>
-                    
+                  ) : (
+                    <ul className="space-y-2">
+                      {extractedDetails.map((detail, idx) => (
+                        <li key={idx} className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} flex justify-between items-start gap-4`}>
+                          <div>
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-0.5">{detail.typeLabel}</span>
+                            <span className="font-bold text-sm">{detail.value}</span>
+                          </div>
+                          <div className="shrink-0 pt-1">
+                            {detail.status === 'confirmed' ? (
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-green-600 dark:text-green-400 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" /> Confirmed
+                              </span>
+                            ) : detail.status === 'clarification_needed' ? (
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-red-500 flex items-center gap-1">
+                                <X className="w-3 h-3" /> Clarifying
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 flex items-center gap-1">
+                                <Clock className="w-3 h-3" /> User Entered
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
                     <label className={`flex-1 w-full flex items-center justify-center gap-2 p-3 rounded-lg border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-[#655A7C] ${addToPlanner ? accentSolid + ' border-transparent' : `${cardBg}${borderTone} hover:opacity-80`}`}>
                       <input 
                         type="checkbox" 
@@ -379,7 +412,7 @@ export default function ConversationAssist() {
                     type="submit" 
                     className={`w-full py-3.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 ${accentSolid} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
                   >
-                    <FileDown className="w-4 h-4" aria-hidden="true" /> Save Summary
+                    <FileDown className="w-4 h-4" aria-hidden="true" /> Save Structured Record
                   </button>
                 </div>
               </form>
@@ -446,45 +479,64 @@ export default function ConversationAssist() {
                     ? `${cardInnerBg}${borderTone} rounded-tr-none` 
                     : `${cardBg}${borderTone} rounded-tl-none`
                 }`}>
-                  {/* Visually hidden screen reader announcement for message sender */}
                   <span className="sr-only">
                     {isUser || isIntro ? 'You said:' : 'Staff replied:'}
                   </span>
                   
-                  <p className="text-base sm:text-lg font-black leading-snug whitespace-pre-line">
-                    {msg.text}
-                  </p>
-                  
-                  {msg.isConfirmBackRequest && isUser && (
-                    <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-black/10 dark:border-white/10">
-                      <span className="w-full text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 mb-1">Staff: Please confirm or clarify</span>
-                      <button 
-                        onClick={() => handleStaffMessage("Yes, that is correct.", true)} 
-                        className={`px-4 py-2 rounded-lg border text-xs font-bold transition-all ${accentSolid} hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
-                        aria-label="Staff confirms statement is correct"
-                      >
-                        Yes, correct
-                      </button>
-                      <button 
-                        onClick={() => handleStaffMessage("No, that is incorrect. Please clarify.", false)} 
-                        className={`px-4 py-2 rounded-lg border ${borderTone} text-xs font-bold hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
-                        aria-label="Staff indicates statement is incorrect"
-                      >
-                        No, please clarify
-                      </button>
+                  {msg.isConfirmBackRequest ? (
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 flex items-center gap-1">
+                        <CheckSquare className="w-3 h-3" /> Verification Request
+                      </span>
+                      <div className={`p-3 rounded-lg border ${borderTone} ${cardBg} flex flex-col gap-1`}>
+                        <span className="text-xs font-mono font-bold uppercase tracking-wider opacity-80">{msg.confirmData.typeLabel}:</span>
+                        <span className="text-lg font-black">{msg.confirmData.value}</span>
+                      </div>
+                      
+                      {msg.confirmData.status === 'pending' && (
+                        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-black/10 dark:border-white/10">
+                          <span className="w-full text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 mb-1">Staff: Please confirm detail</span>
+                          <button 
+                            onClick={() => handleStaffDetailVerification(msg.id, 'confirmed')} 
+                            className={`px-4 py-2 rounded-lg border text-xs font-bold transition-all ${accentSolid} hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                          >
+                            Confirm Detail
+                          </button>
+                          <button 
+                            onClick={() => handleStaffDetailVerification(msg.id, 'clarification_needed')} 
+                            className={`px-4 py-2 rounded-lg border ${borderTone} text-xs font-bold hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                          >
+                            Incorrect / Clarify
+                          </button>
+                        </div>
+                      )}
+                      {msg.confirmData.status === 'confirmed' && (
+                        <div className="mt-2 text-[10px] font-mono font-bold uppercase tracking-widest text-green-600 dark:text-green-400 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Staff Confirmed
+                        </div>
+                      )}
+                      {msg.confirmData.status === 'clarification_needed' && (
+                        <div className="mt-2 text-[10px] font-mono font-bold uppercase tracking-widest text-red-500 flex items-center gap-1">
+                          <X className="w-3 h-3" /> Staff Rejected - Needs Clarification
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <p className="text-base sm:text-lg font-black leading-snug whitespace-pre-line">
+                      {msg.text}
+                    </p>
                   )}
                   
                   <div className={`flex items-center gap-3 mt-3 pt-2 border-t text-xs ${isDarkTheme ? 'border-white/10' : 'border-black/10'}`}>
                     <button 
-                      onClick={() => setActiveLargeText(msg.text)}
+                      onClick={() => setActiveLargeText(msg.isConfirmBackRequest ? `[${msg.confirmData.typeLabel}]\n${msg.confirmData.value}` : msg.text)}
                       className="font-mono font-bold opacity-75 hover:opacity-100 flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded px-1"
                       aria-label="Enlarge this message text"
                     >
                       <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" /> Enlarge
                     </button>
                     <button 
-                      onClick={() => speakText(msg.id, msg.text)}
+                      onClick={() => speakText(msg.id, msg.isConfirmBackRequest ? `Verification Request: ${msg.confirmData.typeLabel} is ${msg.confirmData.value}` : msg.text)}
                       className={`font-mono font-bold flex items-center gap-1 ${isSpeaking ? 'text-green-600 animate-pulse' : 'opacity-75 hover:opacity-100'} focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded px-1`}
                       aria-label={isSpeaking ? "Stop reading message" : "Read message aloud"}
                     >
@@ -546,7 +598,7 @@ export default function ConversationAssist() {
                 aria-expanded={showConfirmBack}
                 aria-controls="confirm-back-panel"
               >
-                <CheckSquare className="w-3.5 h-3.5" aria-hidden="true" /> Confirm Understanding
+                <CheckSquare className="w-3.5 h-3.5" aria-hidden="true" /> Detail Confirm
               </button>
             </div>
           </div>
@@ -575,31 +627,49 @@ export default function ConversationAssist() {
             </div>
           )}
 
-          {/* Expanded Confirm-Back Form */}
+          {/* Expanded Detail-by-Detail Confirm-Back Form */}
           {showConfirmBack && (
-            <div id="confirm-back-panel" className={`p-3 rounded-xl border ${borderTone} ${cardInnerBg} animate-in slide-in-from-bottom-2 duration-200 space-y-2`}>
+            <div id="confirm-back-panel" className={`p-4 rounded-xl border ${borderTone} ${cardInnerBg} animate-in slide-in-from-bottom-2 duration-200 space-y-3`}>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 block flex items-center gap-1.5">
-                <CheckSquare className="w-3.5 h-3.5" aria-hidden="true" /> Confirm Understanding
+                <CheckSquare className="w-3.5 h-3.5" aria-hidden="true" /> Confirm Specific Details
               </span>
-              <p className={`text-[10px] font-medium leading-snug mb-2 ${textSecondary}`}>
-                Repeat the important details in simple words so both people can check they understood correctly.
+              <p className={`text-[10px] font-medium leading-snug mb-1 ${textSecondary}`}>
+                Select a category and enter the detail to verify it directly with staff.
               </p>
+              
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                {DETAIL_TYPES.map(type => {
+                  const TypeIcon = type.icon;
+                  const isSelected = confirmDetailType === type.id;
+                  return (
+                    <button
+                      key={type.id}
+                      onClick={() => setConfirmDetailType(type.id)}
+                      className={`px-3 py-1.5 rounded-lg border flex items-center gap-1.5 whitespace-nowrap text-[10px] sm:text-xs font-bold transition-all focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none shrink-0
+                        ${isSelected ? accentSolid + ' border-transparent' : `${borderTone}${cardBg} hover:opacity-80`}`}
+                    >
+                      <TypeIcon className="w-3 h-3" /> {type.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="flex gap-2">
                 <input
                   type="text"
-                  value={confirmBackText}
-                  onChange={(e) => setConfirmBackText(e.target.value)}
-                  placeholder="e.g., the next step is to visit Counter 3"
-                  aria-label="Detail to confirm with staff"
+                  value={confirmDetailValue}
+                  onChange={(e) => setConfirmDetailValue(e.target.value)}
+                  placeholder={`e.g., enter the ${DETAIL_TYPES.find(t => t.id === confirmDetailType)?.label.toLowerCase()}...`}
+                  aria-label="Detail value to confirm"
                   className={`p-2.5 flex-1 font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardBg} ${borderTone} focus:border-[#655A7C] focus-visible:ring-2 focus-visible:ring-[#655A7C]`}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleUserMessage(null, true); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleDetailConfirmRequest(); }}
                 />
                 <button
-                  onClick={() => handleUserMessage(null, true)}
-                  disabled={!confirmBackText.trim()}
-                  className={`px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none ${confirmBackText.trim() ? accentSolid + ' hover:opacity-90' : 'opacity-50 cursor-not-allowed border ' + borderTone}`}
+                  onClick={handleDetailConfirmRequest}
+                  disabled={!confirmDetailValue.trim()}
+                  className={`px-4 py-2.5 rounded-lg font-bold text-[10px] sm:text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none ${confirmDetailValue.trim() ? accentSolid + ' hover:opacity-90' : 'opacity-50 cursor-not-allowed border ' + borderTone}`}
                 >
-                  Send Confirmation Request <Send className="w-3 h-3" aria-hidden="true" />
+                  Send Verification <Send className="w-3 h-3 hidden sm:block" aria-hidden="true" />
                 </button>
               </div>
             </div>

@@ -18,7 +18,10 @@ import {
   CalendarClock,
   ChevronDown,
   ChevronUp,
-  Play
+  Play,
+  IdCard,
+  Users,
+  MessageSquareWarning
 } from 'lucide-react';
 
 /* 
@@ -81,6 +84,15 @@ export default function CommunicationHub() {
 
   const domains = [
     {
+      id: 'interpreter',
+      title: 'Interpreter Request',
+      icon: Users,
+      badge: 'ACCESS HANDOFF',
+      desc: 'Formally request an ISL interpreter from facility staff.',
+      href: '/interpreter-handoff',
+      status: 'Ready to dispatch'
+    },
+    {
       id: 'healthcare',
       title: 'Healthcare',
       icon: HeartPulse,
@@ -142,8 +154,8 @@ export default function CommunicationHub() {
       <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 my-auto pb-28">
         
         {/* Header Section */}
-        <header className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b pb-8 mb-10 ${borderTone}`}>
-          <div>
+        <header className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b pb-8 mb-10 ${borderTone}`}>
+          <div className="flex-1">
             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border ${borderTone} ${cardBg} text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider mb-4`}>
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
               ORCHESTRATION HUB
@@ -156,14 +168,37 @@ export default function CommunicationHub() {
             </p>
           </div>
           
-          <Link 
-            href="/emergency"
-            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
-            aria-label="Open Emergency Mode"
-          >
-            <ShieldAlert className="w-4 h-4 shrink-0 text-[#655A7C] dark:text-[#FDF1E2]" aria-hidden="true" />
-            <span>Open Emergency</span>
-          </Link>
+          <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3 shrink-0">
+            {/* Personal Communication Card Shortcut */}
+            <Link 
+              href="/communication-card"
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all ${accentSolid} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+              aria-label="Open Personal Communication ID Card"
+            >
+              <IdCard className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>Show ID Card</span>
+            </Link>
+            
+            {/* NEW: Emergency Card Shortcut */}
+            <Link 
+              href="/emergency-card"
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500 focus-visible:outline-none`}
+              aria-label="Open Emergency Phrases"
+            >
+              <MessageSquareWarning className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>SOS Phrases</span>
+            </Link>
+
+            {/* Existing Medical Vault Shortcut */}
+            <Link 
+              href="/emergency"
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+              aria-label="Open Medical Vault"
+            >
+              <ShieldAlert className="w-4 h-4 shrink-0 text-[#655A7C] dark:text-[#FDF1E2]" aria-hidden="true" />
+              <span>Open Vault</span>
+            </Link>
+          </div>
         </header>
 
         {/* ========================================== */}
@@ -259,7 +294,7 @@ export default function CommunicationHub() {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {domains.map((domain) => {
               const IconComponent = domain.icon;
               return (

@@ -1,34 +1,35 @@
 import './globals.css';
 import PWARegister from '../components/PWARegister';
 import { ThemeProvider } from '../context/ThemeContext';
+import AppWrapper from '../components/AppWrapper';
 
 export const metadata = {
   title: 'SignMitra — Communication Companion',
   description: 'A privacy-focused, stateful accessibility platform for Indian Sign Language users.',
-  manifest: '/manifest.json', // Foundation for our Phase 7 PWA support
+  manifest: '/manifest.json', 
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        {/* Ensures accurate scaling on mobile devices preventing accidental multi-taps */}
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
         />
-        <meta name="theme-color" content="#0f172a" />
+        <meta name="theme-color" content="#FDF1E2" />
         <link rel="icon" href="/favicon.ico" />
       </head>
-      <body className="antialiased selection:bg-blue-500 selection:text-white bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-150">
+      <body className="antialiased transition-colors duration-150">
         <ThemeProvider>
-          {/* ✅ Registers the Service Worker silently in the client background */}
+          {/* Registers the Service Worker silently in the client background */}
           <PWARegister />
-
-          {/* Universal Application Wrapper */}
-          <div className="min-h-screen w-full flex flex-col justify-start">
+          
+          {/* Global Theme Wrapper containing the Navbar */}
+          <AppWrapper>
             {children}
-          </div>
+          </AppWrapper>
+
         </ThemeProvider>
       </body>
     </html>

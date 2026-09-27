@@ -6,12 +6,18 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [isDarkTheme, setIsDarkTheme] = useState(false);
+  const [isSimpleLanguage, setIsSimpleLanguage] = useState(false);
 
-  // Load saved preference from localStorage on mount
+  // Load saved preferences from localStorage on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('signmitra_theme');
     if (savedTheme !== null) {
       setIsDarkTheme(savedTheme === 'dark');
+    }
+
+    const savedLang = localStorage.getItem('signmitra_simple_lang');
+    if (savedLang !== null) {
+      setIsSimpleLanguage(savedLang === 'true');
     }
   }, []);
 
@@ -23,10 +29,20 @@ export function ThemeProvider({ children }) {
     });
   };
 
+  const toggleSimpleLanguage = () => {
+    setIsSimpleLanguage((prev) => {
+      const nextLang = !prev;
+      localStorage.setItem('signmitra_simple_lang', nextLang ? 'true' : 'false');
+      return nextLang;
+    });
+  };
+
   // Centralized theme tokens matching the exact Linen / Amethyst / Dolphin palette
   const themeTokens = {
     isDarkTheme,
     toggleTheme,
+    isSimpleLanguage,
+    toggleSimpleLanguage,
     bgCanvas: isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]',
     textPrimary: isDarkTheme ? 'text-[#FDF1E2]' : 'text-[#655A7C]',
     textSecondary: isDarkTheme ? 'text-[#AB92BF]' : 'text-[#655A7C]/80',

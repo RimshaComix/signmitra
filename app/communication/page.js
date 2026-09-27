@@ -15,7 +15,13 @@ import {
   Sparkles,
   RotateCcw,
   Check,
-  ShieldAlert
+  ShieldAlert,
+  Type,
+  Volume2,
+  Maximize2,
+  Minimize2,
+  Share2,
+  Printer
 } from 'lucide-react';
 
 /* 
@@ -27,6 +33,135 @@ import {
 */
 
 const WORKFLOW_CONFIGS = {
+  // =========================================================================
+  // EDUCATION MODULE: P0 CORE WORKFLOWS
+  // =========================================================================
+  exam_issue: {
+    title: 'Exam / Internal Assessment Issue',
+    fields: [
+      { id: 'course', label: 'Course / Subject Name', type: 'text', required: true, placeholder: 'e.g., Data Structures CS201' },
+      { id: 'examType', label: 'Assessment Type', type: 'select', options: ['Internal Assessment / Midterm', 'Final Semester Exam', 'Lab / Viva Voce', 'Assignment Submission'], required: true },
+      { id: 'date', label: 'Date of Assessment', type: 'date', required: true },
+      { id: 'issueCategory', label: 'Issue Category', type: 'select', options: ['Mark Discrepancy / Re-evaluation Request', 'Absent by Mistake on Portal', 'Hall Ticket / Seating Issue', 'Reschedule Request (Medical)'], required: true },
+      { id: 'explanation', label: 'Brief Explanation (Optional)', type: 'text', required: false, placeholder: 'e.g., Question 4 marks not added' }
+    ],
+    templates: {
+      review: (entities) =>
+        `EXAMINATION QUERY:\n• Subject: ${entities.course}\n• Assessment: ${entities.examType} on ${entities.date}\n• Issue: ${entities.issueCategory}\n${entities.explanation ? `• Details: ${entities.explanation}\n` : ''}Please provide written clarification on the next steps.`,
+      completed: (entities, response) =>
+        `Exam query recorded for ${entities.course}. Staff instruction: ${response || 'Inquiry logged.'}`
+    },
+    staffOptions: [
+      'Record updated in the portal. Please check tomorrow.',
+      'Submit a physical re-evaluation form at the examination cell.',
+      'Speak to the subject professor directly for internal marks.'
+    ]
+  },
+
+  course_registration: {
+    title: 'Course Registration / Subject Query',
+    fields: [
+      { id: 'semester', label: 'Current Semester', type: 'select', options: ['Semester 1', 'Semester 2', 'Semester 3', 'Semester 4', 'Semester 5', 'Semester 6', 'Semester 7', 'Semester 8'], required: true },
+      { id: 'course', label: 'Course / Elective Name', type: 'text', required: true, placeholder: 'e.g., AI Elective CS405' },
+      { id: 'issueType', label: 'Registration Issue', type: 'select', options: ['Cannot Register on Portal (Error)', 'Prerequisite Override Request', 'Section / Batch Change Request', 'Drop / Withdraw from Subject'], required: true },
+      { id: 'details', label: 'Relevant Details (Optional)', type: 'text', required: false, placeholder: 'e.g., Portal shows prerequisite missing' }
+    ],
+    templates: {
+      review: (entities) =>
+        `ACADEMIC ENROLLMENT REQUEST:\n• Semester: ${entities.semester}\n• Subject: ${entities.course}\n• Request Type: ${entities.issueType}\n${entities.details ? `• Context: ${entities.details}\n` : ''}Please verify my registration status or provide override approval.`,
+      completed: (entities, response) =>
+        `Enrollment query logged for ${entities.course}. Staff response: ${response || 'Request submitted.'}`
+    },
+    staffOptions: [
+      'Override approved. Check your student portal to complete registration.',
+      'This section is full. Please choose an alternative elective.',
+      'You must visit your department HOD for an approval signature first.'
+    ]
+  },
+
+  fee_scholarship_query: {
+    title: 'Fees / Scholarship Assistance',
+    fields: [
+      { id: 'queryType', label: 'Query Category', type: 'select', options: ['Tuition Fee Payment Discrepancy', 'Scholarship Status / Application', 'Request Installment Plan', 'Official Fee Receipt Generation'], required: true },
+      { id: 'semester', label: 'Applicable Semester / Year', type: 'select', options: ['Current Semester', 'Next Semester', 'Previous Academic Year'], required: true },
+      { id: 'amount', label: 'Amount Involved (Optional)', type: 'text', required: false, placeholder: 'e.g., 45,000 INR' },
+      { id: 'reference', label: 'Reference / Transaction ID (Optional)', type: 'text', required: false, placeholder: 'e.g., TXN-89912' }
+    ],
+    templates: {
+      review: (entities) =>
+        `STUDENT FINANCE DESK QUERY:\n• Query: ${entities.queryType}\n• Period: ${entities.semester}\n${entities.amount ? `• Amount: ₹${entities.amount}\n` : ''}${entities.reference ? `• Reference: ${entities.reference}\n` : ''}Please verify the records and advise on the status.`,
+      completed: (entities, response) =>
+        `Financial query logged for ${entities.queryType}. Resolution: ${response || 'Query processed.'}`
+    },
+    staffOptions: [
+      'Payment traced successfully. Official receipt has been generated.',
+      'Scholarship is under processing. Please wait 1 week for portal update.',
+      'Please submit the physical application with your income certificate attached.'
+    ]
+  },
+
+  education_accessibility_request: {
+    title: 'Request Accessibility Support',
+    fields: [
+      { id: 'commMethod', label: 'Preferred Communication Method', type: 'select', options: ['Written Notes / Visual Prompts', 'Lip-reading with slow articulation', 'In-Person ISL Interpreter', 'Peer Companion Assistance'], required: true },
+      { id: 'supportType', label: 'Support / Accommodation Requested', type: 'select', options: ['Extra time for examination', 'Access to visual lecture notes / transcripts', 'Front row seating reservation', 'Other visual accommodation'], required: true },
+      { id: 'context', label: 'Relevant Context (Optional)', type: 'text', required: false, placeholder: 'e.g., Required for CS201 Midterm Exam' }
+    ],
+    templates: {
+      review: (entities) =>
+        `CAMPUS ACCESSIBILITY REQUEST:\n• I am Deaf / Hard-of-Hearing.\n• Preferred Communication: ${entities.commMethod}\n• Accommodation Needed: ${entities.supportType}\n${entities.context ? `• Context: ${entities.context}\n` : ''}I am presenting this to coordinate support. Please confirm next steps.`,
+      completed: (entities, response) =>
+        `Accessibility accommodation communicated. Response: ${response || 'Request reviewed.'}`
+    },
+    staffOptions: [
+      'Accommodation noted in your student file. Request approved.',
+      'The subject professor has been informed about your visual support needs.',
+      'Please visit the Disability Support Cell to get a formal accommodation letter.'
+    ]
+  },
+
+  // =========================================================================
+  // EDUCATION MODULE: FOUNDATIONAL WORKFLOWS
+  // =========================================================================
+  meet_faculty: {
+    title: 'Meet Faculty / Professor',
+    fields: [
+      { id: 'department', label: 'Select Academic Department', type: 'select', options: ['Computer Science', 'Electrical Engineering', 'Mechanical Engineering', 'Business Administration', 'Basic Sciences'], required: true },
+      { id: 'purpose', label: 'Purpose of Meeting', type: 'select', options: ['Project Review & Guidance', 'Assignment Grading Clarification', 'Letter of Recommendation Request', 'General Academic Advising'], required: true },
+      { id: 'datetime', label: 'Preferred Date & Time', type: 'text', required: true, placeholder: 'e.g., Tomorrow at 2:00 PM' }
+    ],
+    templates: {
+      review: (entities) => `I want to meet a faculty member from the ${entities.department || '[Department]'} department for "${entities.purpose || '[Purpose]'}".\n• Preferred Time: ${entities.datetime}`,
+      completed: (entities, response) => `Faculty meeting request processed. Resolution: ${response || 'Meeting slot coordinated.'}`
+    },
+    staffOptions: ['Please wait, the professor will see you in 10 minutes.', 'The professor is out today. Please schedule an appointment via email.', 'Please take a seat inside the waiting lounge.']
+  },
+  attendance_issue: {
+    title: 'Attendance Discrepancy Query',
+    fields: [
+      { id: 'courseCode', label: 'Enter Course Name / Code', type: 'text', required: true, placeholder: 'e.g., CS301' },
+      { id: 'absenceDate', label: 'Date of Marked Absence', type: 'date', required: true },
+      { id: 'reason', label: 'Reason for Discrepancy', type: 'select', options: ['Present in Class but Marked Absent', 'Medical Leave (Medical Certificate Attached)', 'Official College Event Duty Leave'], required: true }
+    ],
+    templates: {
+      review: (entities) => `I want to report an attendance issue for course "${entities.courseCode || '[Course]'}". I was marked absent on ${entities.absenceDate || '[Date]'} due to: ${entities.reason || '[Reason]'}.`,
+      completed: (entities, response) => `Attendance correction file evaluated. Update: ${response || 'Processing manual system correction.'}`
+    },
+    staffOptions: ['Attendance updated to Present in the system portals.', 'Please submit your physical medical certificate/duty leave slip.', 'Please speak directly with the subject teacher for approval.']
+  },
+  certificate_request: {
+    title: 'Academic Document / Certificate Request',
+    fields: [
+      { id: 'docType', label: 'Select Required Document', type: 'select', options: ['Official Academic Transcript', 'Bonafide Student Certificate', 'No Objection Certificate (NOC)', 'Migration Certificate'], required: true },
+      { id: 'urgency', label: 'Timeline Required', type: 'select', options: ['Standard Processing (3-5 Days)', 'Urgent Requirement (Same Day/Immediate)'], required: true }
+    ],
+    templates: {
+      review: (entities) => `I request a ${entities.docType || '[Document]'} with a processing status of: ${entities.urgency || '[Urgency]'}.`,
+      completed: (entities, response) => `Document generation order updated. Status: ${response || 'Request sent to registrar office.'}`
+    },
+    staffOptions: ['Document is ready. Processing printing right now.', 'Request logged. Please collect from the registrar office after 2 days.', 'Please clear outstanding fees before certificate issue.']
+  },
+
   // =========================================================================
   // BANKING MODULE: P0 CORE WORKFLOWS
   // =========================================================================
@@ -51,7 +186,6 @@ const WORKFLOW_CONFIGS = {
       'Please fill out the physical Form D-12 at Counter 3 with your UTR reference.'
     ]
   },
-
   kyc_details_update: {
     title: 'Update KYC / Personal Account Details',
     fields: [
@@ -71,7 +205,6 @@ const WORKFLOW_CONFIGS = {
       'Address proof requires utility bill dated within the last 3 months.'
     ]
   },
-
   cheque_services_query: {
     title: 'Cheque Book Request / Stop Cheque',
     fields: [
@@ -92,7 +225,6 @@ const WORKFLOW_CONFIGS = {
       'Cheque cleared successfully this morning at 10:15 AM.'
     ]
   },
-
   loan_emi_discrepancy: {
     title: 'Loan Account & EMI Query',
     fields: [
@@ -112,10 +244,6 @@ const WORKFLOW_CONFIGS = {
       'Please speak with the Loan Manager at Cabin 2 for restructuring.'
     ]
   },
-
-  // =========================================================================
-  // BANKING MODULE: FOUNDATIONAL WORKFLOWS
-  // =========================================================================
   transaction_issue: {
     title: 'Report ATM / Point-of-Sale Issue',
     fields: [
@@ -130,7 +258,6 @@ const WORKFLOW_CONFIGS = {
     },
     staffOptions: ['Complaint logged. Amount will reverse in 3-5 working days.', 'Please provide physical transaction receipt/slip.', 'Branch manager must verify. Please wait at Counter 2.']
   },
-
   card_problem: {
     title: 'Block Lost Card / Request Replacement',
     fields: [
@@ -144,7 +271,6 @@ const WORKFLOW_CONFIGS = {
     },
     staffOptions: ['Card suspended instantly. Security block active.', 'Card replacement order submitted. Collect in 7 business days.', 'Please verify identity with physical government ID / PAN card.']
   },
-
   statement_request: {
     title: 'Request Certified Bank Statement',
     fields: [
@@ -159,7 +285,7 @@ const WORKFLOW_CONFIGS = {
   },
 
   // =========================================================================
-  // HEALTHCARE MODULE (P0 & FOUNDATIONS PRESERVED)
+  // HEALTHCARE MODULE: P0 & FOUNDATIONS PRESERVED
   // =========================================================================
   reschedule_cancel_appointment: {
     title: 'Reschedule / Cancel Existing Appointment',
@@ -277,54 +403,22 @@ const WORKFLOW_CONFIGS = {
       completed: (entities, response) => `Pharmacy query processed. Dispensation status: ${response || 'Prescription filled.'}`
     },
     staffOptions: ['Medication dispensed with visual dosage stickers.', 'Brand unavailable. Exact generic equivalent provided.', 'Maintenance refill requires updated clinician signature.']
-  },
-
-  // =========================================================================
-  // EDUCATION MODULE (PRESERVED)
-  // =========================================================================
-  meet_faculty: {
-    title: 'Meet Faculty / Professor',
-    fields: [
-      { id: 'department', label: 'Select Academic Department', type: 'select', options: ['Computer Science', 'Electrical Engineering', 'Mechanical Engineering', 'Business Administration', 'Basic Sciences'], required: true },
-      { id: 'purpose', label: 'Purpose of Meeting', type: 'select', options: ['Project Review & Guidance', 'Assignment Grading Clarification', 'Letter of Recommendation Request', 'General Academic Advising'], required: true }
-    ],
-    templates: {
-      review: (entities) => `I want to meet a faculty member from the ${entities.department || '[Department]'} department for "${entities.purpose || '[Purpose]'}".`,
-      completed: (entities, response) => `Faculty meeting request processed. Resolution: ${response || 'Meeting slot coordinated.'}`
-    },
-    staffOptions: ['Please wait, the professor will see you in 10 minutes.', 'The professor is out today. Please schedule an appointment via email.', 'Please take a seat inside the waiting lounge.']
-  },
-  attendance_issue: {
-    title: 'Attendance Discrepancy Query',
-    fields: [
-      { id: 'courseCode', label: 'Enter Course Name / Code', type: 'text', required: true },
-      { id: 'absenceDate', label: 'Date of Marked Absence', type: 'date', required: true },
-      { id: 'reason', label: 'Reason for Discrepancy', type: 'select', options: ['Present in Class but Marked Absent', 'Medical Leave (Medical Certificate Attached)', 'Official College Event Duty Leave'], required: true }
-    ],
-    templates: {
-      review: (entities) => `I want to report an attendance issue for course "${entities.courseCode || '[Course]'}". I was marked absent on ${entities.absenceDate || '[Date]'} due to: ${entities.reason || '[Reason]'}.`,
-      completed: (entities, response) => `Attendance correction file evaluated. Update: ${response || 'Processing manual system correction.'}`
-    },
-    staffOptions: ['Attendance updated to Present in the system portals.', 'Please submit your physical medical certificate/duty leave slip.', 'Please speak directly with the subject teacher for approval.']
-  },
-  certificate_request: {
-    title: 'Academic Document / Certificate Request',
-    fields: [
-      { id: 'docType', label: 'Select Required Document', type: 'select', options: ['Official Academic Transcript', 'Bonafide Student Certificate', 'No Objection Certificate (NOC)', 'Migration Certificate'], required: true },
-      { id: 'urgency', label: 'Timeline Required', type: 'select', options: ['Standard Processing (3-5 Days)', 'Urgent Requirement (Same Day/Immediate)'], required: true }
-    ],
-    templates: {
-      review: (entities) => `I request a ${entities.docType || '[Document]'} with a processing status of: ${entities.urgency || '[Urgency]'}.`,
-      completed: (entities, response) => `Document generation order updated. Status: ${response || 'Request sent to registrar office.'}`
-    },
-    staffOptions: ['Document is ready. Processing printing right now.', 'Request logged. Please collect from the registrar office after 2 days.', 'Please clear outstanding fees before certificate issue.']
   }
 };
+
+const COMMON_STAFF_RESPONSES = [
+  'Information verified and updated.',
+  'Request submitted successfully.',
+  'Please wait, staff will assist you shortly.',
+  'More information is needed, please visit the main desk.'
+];
 
 function CommunicationCanvasBody() {
   const {
     isDarkTheme,
     toggleTheme,
+    isSimpleLanguage,
+    toggleSimpleLanguage,
     bgCanvas,
     textPrimary,
     textSecondary,
@@ -345,6 +439,11 @@ function CommunicationCanvasBody() {
   const [staffResponse, setStaffResponse] = useState('');
   const [errors, setErrors] = useState({});
   const [serverSessionId, setServerSessionId] = useState(null);
+  
+  // Communication Mode states
+  const [isLargeTextMode, setIsLargeTextMode] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     import('@/components/api')
@@ -399,7 +498,7 @@ function CommunicationCanvasBody() {
     const newErrors = {};
     config.fields.forEach(field => {
       if (field.required && !entities[field.id]) {
-        newErrors[field.id] = `${field.label} is required.`;
+        newErrors[field.id] = isSimpleLanguage ? "Required." : `${field.label} is required.`;
       }
     });
 
@@ -411,8 +510,30 @@ function CommunicationCanvasBody() {
   };
 
   const handleStaffSelect = async (optionText, customInput = '') => {
-    setStaffResponse(optionText || customInput);
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    
+    const finalResponse = optionText || customInput;
+    setStaffResponse(finalResponse);
     setCurrentState('completed');
+
+    const sessionRecord = {
+      id: `REQ-${Date.now()}`,
+      domain: domain.toUpperCase(),
+      intent: intent,
+      title: config.title,
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString(),
+      status: 'Staff Responded',
+      entities: entities,
+      staffResponse: finalResponse
+    };
+
+    try {
+      const existing = JSON.parse(localStorage.getItem('signmitra_history') || '[]');
+      localStorage.setItem('signmitra_history', JSON.stringify([sessionRecord, ...existing]));
+    } catch (err) {
+      console.error("Local storage error:", err);
+    }
 
     if (serverSessionId) {
       try {
@@ -424,278 +545,465 @@ function CommunicationCanvasBody() {
     }
   };
 
+  const speakText = () => {
+    if (!window.speechSynthesis) {
+      alert("Text-to-speech is not supported by your browser.");
+      return;
+    }
+    
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const textToRead = config.templates.review(entities);
+    const utterance = new SpeechSynthesisUtterance(textToRead);
+    
+    const voices = window.speechSynthesis.getVoices();
+    const savedVoiceURI = localStorage.getItem('signmitra_preferred_voice');
+    
+    if (savedVoiceURI) {
+      const selected = voices.find(v => v.voiceURI === savedVoiceURI);
+      if (selected) utterance.voice = selected;
+    } else {
+      const preferredVoice = voices.find(voice => voice.lang.includes('en-IN') || voice.lang.includes('en-US') || voice.lang.includes('en-GB'));
+      if (preferredVoice) utterance.voice = preferredVoice;
+    }
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleNativeShare = async () => {
+    const shareText = config.templates.review(entities);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `SignMitra Request: ${config.title}`,
+          text: shareText,
+        });
+        setShowShareModal(false);
+      } catch (err) {
+        console.log('User cancelled share or share failed.', err);
+      }
+    } else {
+      alert("Native sharing is not supported on this device/browser.");
+    }
+  };
+
+  const handlePrintPDF = () => {
+    setShowShareModal(false);
+    // Add slight delay to allow modal to close before printing
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans antialiased selection:bg-[#655A7C] selection:text-[#FDF1E2] flex flex-col justify-between ${bgCanvas} ${textPrimary}`}>
       
-      {/* Top Runtime Status Bar */}
-      <div className={`w-full border-b py-2.5 px-4 sm:px-8 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg}`}>
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/${domain}`}
-            className="font-bold uppercase tracking-wider hover:opacity-75 transition-opacity inline-flex items-center gap-1.5"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Cancel & Back to {domain.toUpperCase()}</span>
-          </Link>
-          <span className="opacity-40">/</span>
-          <span className="opacity-80">SESSION RUNTIME CORE</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={toggleTheme}
-            aria-label="Toggle Theme Mode"
-            className={`p-1.5 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all`}
-          >
-            {isDarkTheme ? <Sun className="w-3.5 h-3.5 text-[#FDF1E2]" /> : <Moon className="w-3.5 h-3.5 text-[#655A7C]" />}
-          </button>
-        </div>
+      {/* 
+        PRINT STYLES (Tailwind Print Modifiers)
+        This ensures only the actual communication card text prints when exported to PDF.
+      */}
+      <div className="hidden print:block print:p-8 print:w-full print:bg-white print:text-black">
+         <h1 className="text-3xl font-black mb-6 uppercase border-b-2 border-black pb-4">SignMitra Communication Request</h1>
+         <p className="text-2xl font-bold leading-relaxed whitespace-pre-line">
+            {config.templates.review(entities)}
+         </p>
+         <div className="mt-12 text-sm font-mono opacity-50">
+           Generated securely on device • No cloud storage
+         </div>
       </div>
 
-      <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 my-auto">
-        
-        {/* Dynamic Header Box */}
-        <header className={`rounded-xl border ${borderTone} p-6 sm:p-7 mb-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${cardBg}`}>
-          <div>
-            <div className={`inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md border ${borderTone} ${cardInnerBg} text-[10px] font-mono font-bold uppercase tracking-wider mb-2`}>
-              <Sparkles className="w-3.5 h-3.5" />
-              DOMAIN: {domain.toUpperCase()}
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight leading-[1.08]">
-              {config.title}
-            </h1>
-            <p className={`text-xs sm:text-sm mt-1 max-w-xl font-medium ${textSecondary}`}>
-              Structured communication session. Fill required parameters to deploy an unambiguous card to the official.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <span className={`text-[10px] font-mono font-bold px-3 py-1 rounded border ${borderTone} ${cardInnerBg} uppercase tracking-wider`}>
-              STATE: {currentState.replace('_', ' ')}
-            </span>
-            {currentState !== 'completed' && (
-              <button
-                onClick={() => { if (confirm(`Cancel current ${domain} session?`)) window.location.href = `/${domain}` }}
-                className={`p-2 rounded-lg border ${borderTone} hover:opacity-80 transition-all ${cardInnerBg}`}
-                title="Cancel Workflow"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </header>
-
-        {/* STATE 1: Collecting (User inputs parameters) */}
-        {currentState === 'collecting' && (
-          <form onSubmit={handleValidateAndReview} className={`p-6 sm:p-7 rounded-xl border ${borderTone} shadow-sm space-y-5 ${cardBg}`}>
-            {domain === 'banking' && (
-              <div className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} flex items-center gap-2 text-xs font-mono font-medium`}>
-                <ShieldAlert className="w-4 h-4 text-[#655A7C] shrink-0" />
-                <span>Security Notice: Never enter your ATM PIN, NetBanking password, CVV, or OTP here.</span>
-              </div>
-            )}
-
-            {config.fields.map(field => (
-              <div key={field.id} className="flex flex-col gap-1.5">
-                <label className="text-xs font-mono font-bold uppercase tracking-wider">
-                  {field.label} {field.required && <span className="opacity-70">*</span>}
-                </label>
-                {field.type === 'select' ? (
-                  <select
-                    value={entities[field.id] || ''}
-                    onChange={(e) => handleInputChange(field.id, e.target.value)}
-                    className={`p-3 w-full font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardInnerBg} ${borderTone} focus:border-[#655A7C]`}
-                  >
-                    <option value="" disabled className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>-- Select Parameter --</option>
-                    {field.options.map(opt => (
-                      <option key={opt} value={opt} className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type={field.type}
-                    value={entities[field.id] || ''}
-                    onChange={(e) => handleInputChange(field.id, e.target.value)}
-                    onClick={(e) => { if (field.type === 'date' || field.type === 'time') e.target.showPicker?.() }}
-                    placeholder={field.placeholder || 'Enter detail...'}
-                    className={`p-3 w-full font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardInnerBg} ${borderTone} focus:border-[#655A7C] cursor-pointer`}
-                  />
-                )}
-                {errors[field.id] && (
-                  <p className="text-[11px] font-mono font-bold text-red-500">{errors[field.id]}</p>
-                )}
-              </div>
-            ))}
-
-            <button
-              type="submit"
-              className={`w-full py-3.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 ${accentSolid}`}
+      <div className="print:hidden flex flex-col min-h-screen w-full">
+        {/* Top Runtime Status Bar */}
+        <div className={`w-full border-b py-2.5 px-4 sm:px-8 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg}`}>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/${domain}`}
+              className="font-bold uppercase tracking-wider hover:opacity-75 transition-opacity inline-flex items-center gap-1.5"
+              onClick={() => { if(window.speechSynthesis) window.speechSynthesis.cancel(); }}
             >
-              <span>Build Handoff Card</span>
-              <FileText className="w-4 h-4" />
-            </button>
-          </form>
-        )}
-
-        {/* STATE 2: Review (User reviews generated card) */}
-        {currentState === 'review' && (
-          <div className="space-y-6">
-            <div className={`p-6 sm:p-7 rounded-xl border ${borderTone} space-y-4 shadow-sm ${cardBg}`}>
-              <div className="flex items-center justify-between border-b pb-3.5" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
-                <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded border ${borderTone} ${cardInnerBg} inline-block`}>
-                  PREPARED HANDOFF CARD
-                </span>
-                <span className="text-[11px] font-mono font-bold opacity-75">Ready to Present</span>
-              </div>
-              <p className="text-lg sm:text-xl font-black leading-relaxed whitespace-pre-line">
-                "{config.templates.review(entities)}"
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={handleBack}
-                className={`sm:w-1/3 py-3 rounded-lg border ${borderTone} font-bold text-xs uppercase tracking-wider hover:opacity-80 transition-all ${cardBg}`}
-              >
-                ← Edit Parameters
-              </button>
-              <button
-                onClick={() => transitionTo('awaiting_confirmation')}
-                className={`sm:w-2/3 py-3 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all hover:opacity-90 ${accentSolid}`}
-              >
-                Hand Device to Official →
-              </button>
-            </div>
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{isSimpleLanguage ? 'Back' : `Cancel & Back to ${domain.toUpperCase()}`}</span>
+            </Link>
+            <span className="opacity-40 hidden sm:inline">/</span>
+            <span className="opacity-80 hidden sm:inline">{isSimpleLanguage ? 'ACTIVE SESSION' : 'SESSION RUNTIME CORE'}</span>
           </div>
-        )}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={toggleSimpleLanguage}
+              aria-label="Toggle Simple Text"
+              title="Toggle Simple Text"
+              className={`p-1.5 rounded-lg border flex items-center gap-1.5 ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all ${isSimpleLanguage ? 'bg-[#655A7C] text-[#FDF1E2] border-[#655A7C]' : ''}`}
+            >
+              <Type className="w-3.5 h-3.5" />
+              <span className="font-bold hidden sm:inline">{isSimpleLanguage ? 'Simple On' : 'Simple Text'}</span>
+            </button>
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle Theme Mode"
+              className={`p-1.5 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all`}
+            >
+              {isDarkTheme ? <Sun className="w-3.5 h-3.5 text-[#FDF1E2]" /> : <Moon className="w-3.5 h-3.5 text-[#655A7C]" />}
+            </button>
+          </div>
+        </div>
 
-        {/* STATE 3: Awaiting Confirmation (Handoff to Teller / Staff) */}
-        {currentState === 'awaiting_confirmation' && (
-          <div className="space-y-6">
-            <div className={`p-4 rounded-xl border ${borderTone} text-center font-bold text-xs sm:text-sm bg-[#AB92BF]/25 shadow-sm`}>
-              👋 Hand this device across the counter to the branch official or teller.
-            </div>
-
-            <div className={`p-6 sm:p-7 rounded-xl border ${borderTone} space-y-3 shadow-sm ${cardInnerBg}`}>
-              <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${borderTone} ${cardBg} inline-block`}>
-                VISUAL COMMUNICATION REQUEST
-              </span>
-              <p className="text-xl sm:text-2xl font-black leading-snug whitespace-pre-line">
-                "{config.templates.review(entities)}"
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <label className="text-xs font-mono font-bold uppercase tracking-wider block opacity-85">
-                Staff / Teller: Tap Your Official Action
-              </label>
-              <div className="grid grid-cols-1 gap-2.5">
-                {config.staffOptions.map(option => (
-                  <button
-                    key={option}
-                    onClick={() => handleStaffSelect(option)}
-                    className={`w-full text-left p-4 rounded-xl font-bold text-xs sm:text-sm border transition-all ${cardBg} ${borderTone} hover:border-[#655A7C] active:scale-[0.99]`}
-                  >
-                    {option}
-                  </button>
-                ))}
+        {/* Share & Export Modal */}
+        {showShareModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className={`w-full max-w-md p-6 rounded-2xl border ${borderTone} ${bgCanvas} shadow-2xl space-y-5 animate-in zoom-in-95 duration-200`}>
+              <div className="flex justify-between items-start">
+                <h2 className="text-xl font-black uppercase tracking-tight">Export Card</h2>
+                <button onClick={() => setShowShareModal(false)} className={`p-1.5 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80`}>
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            </div>
 
-            <div className="space-y-2 pt-2">
-              <label className="text-xs font-mono font-bold uppercase tracking-wider block opacity-85">
-                Or Type a Written Note:
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  id="customStaffText"
-                  placeholder="Type official reply or desk number..."
-                  className={`p-3 flex-1 font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardInnerBg} ${borderTone} focus:border-[#655A7C]`}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.target.value.trim()) {
-                      handleStaffSelect(null, e.target.value.trim());
-                    }
-                  }}
-                />
+              <div className={`p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 space-y-2`}>
+                <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider">
+                  <ShieldAlert className="w-4 h-4" />
+                  Privacy Warning
+                </div>
+                <p className="text-xs font-medium leading-relaxed">
+                  Before exporting, verify that your card does not contain sensitive passwords or financial PINs. If you export to PDF or share via another app, this data will leave the local SignMitra sandbox.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <button
-                  onClick={() => {
-                    const val = document.getElementById('customStaffText')?.value;
-                    if (val?.trim()) {
-                      handleStaffSelect(null, val.trim());
-                    }
-                  }}
-                  className={`px-5 py-3 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all hover:opacity-90 flex items-center gap-1.5 ${accentSolid}`}
+                  onClick={handleNativeShare}
+                  className={`p-4 rounded-xl border ${borderTone} ${cardBg} hover:border-[#655A7C] transition-all flex flex-col items-center justify-center gap-2 font-bold text-sm`}
                 >
-                  <span>Confirm</span>
-                  <Send className="w-3.5 h-3.5" />
+                  <Share2 className="w-6 h-6 mb-1 opacity-80" />
+                  Share Text
+                </button>
+                <button
+                  onClick={handlePrintPDF}
+                  className={`p-4 rounded-xl border ${borderTone} ${cardBg} hover:border-[#655A7C] transition-all flex flex-col items-center justify-center gap-2 font-bold text-sm`}
+                >
+                  <Printer className="w-6 h-6 mb-1 opacity-80" />
+                  Save as PDF
                 </button>
               </div>
             </div>
-
-            <button
-              onClick={handleBack}
-              className={`w-full border border-dashed ${borderTone} py-3 rounded-lg text-xs font-mono font-bold uppercase tracking-wider hover:opacity-80 transition-all ${cardBg}`}
-            >
-              ← Return Device to Customer
-            </button>
           </div>
         )}
 
-        {/* STATE 4: Completed (Handback Resolution Receipt) */}
-        {currentState === 'completed' && (
-          <div className="space-y-6 text-center py-6">
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl mx-auto shadow-sm ${accentSolid}`}>
-              <Check className="w-7 h-7" />
+        {/* Large Text Modal Overlay */}
+        {isLargeTextMode && (
+          <div className={`fixed inset-0 z-[100] flex flex-col ${bgCanvas} ${textPrimary} p-6 sm:p-12 overflow-y-auto`}>
+            <div className="flex justify-between items-center mb-12">
+               <span className={`text-xs font-mono font-bold uppercase tracking-widest opacity-80 px-3 py-1 rounded-full border ${borderTone}`}>
+                  SignMitra High-Visibility Mode
+               </span>
+               <button 
+                  onClick={() => setIsLargeTextMode(false)}
+                  className={`p-4 rounded-xl border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all`}
+               >
+                  <Minimize2 className="w-6 h-6" />
+               </button>
             </div>
-            
-            <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">
-              Interaction Logged & Complete
-            </h2>
+            <div className="my-auto">
+              <p className="text-3xl sm:text-5xl md:text-6xl font-black leading-tight whitespace-pre-line tracking-tight">
+                {config.templates.review(entities)}
+              </p>
+            </div>
+          </div>
+        )}
 
-            <div className={`p-6 rounded-xl border ${borderTone} text-left max-w-lg mx-auto space-y-4 shadow-sm ${cardBg}`}>
-              <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1">
-                  Official Response Recorded
-                </span>
-                <p className="text-lg sm:text-xl font-black">
-                  {staffResponse}
-                </p>
+        <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 flex-1">
+          
+          {/* Dynamic Header Box */}
+          <header className={`rounded-xl border ${borderTone} p-6 sm:p-7 mb-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${cardBg}`}>
+            <div>
+              <div className={`inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md border ${borderTone} ${cardInnerBg} text-[10px] font-mono font-bold uppercase tracking-wider mb-2`}>
+                <Sparkles className="w-3.5 h-3.5" />
+                DOMAIN: {domain.toUpperCase()}
               </div>
-
-              <div className="border-t pt-3.5" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1">
-                  Final Session Record
-                </span>
-                <p className={`text-xs sm:text-sm font-medium leading-relaxed ${textSecondary}`}>
-                  {config.templates.completed(entities, staffResponse)}
-                </p>
-              </div>
+              <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight leading-[1.08]">
+                {config.title}
+              </h1>
+              <p className={`text-xs sm:text-sm mt-1 max-w-xl font-medium ${textSecondary}`}>
+                {isSimpleLanguage 
+                  ? "Answer the questions below to create a card you can show to staff." 
+                  : "Structured communication session. Fill required parameters to deploy an unambiguous card to the official."}
+              </p>
             </div>
 
-            <div className="flex justify-center gap-3 pt-2">
-              <Link
-                href={`/${domain}`}
-                className={`inline-block px-7 py-3 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-all ${accentSolid}`}
+            <div className="flex items-center gap-2.5">
+              <span className={`text-[10px] font-mono font-bold px-3 py-1 rounded border ${borderTone} ${cardInnerBg} uppercase tracking-wider`}>
+                STATE: {currentState.replace('_', ' ')}
+              </span>
+              {currentState !== 'completed' && (
+                <button
+                  onClick={() => { if (confirm(isSimpleLanguage ? "Cancel this request?" : `Cancel current ${domain} session?`)) window.location.href = `/${domain}` }}
+                  className={`p-2 rounded-lg border ${borderTone} hover:opacity-80 transition-all ${cardInnerBg}`}
+                  title="Cancel Workflow"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </header>
+
+          {/* STATE 1: Collecting (User inputs parameters) */}
+          {currentState === 'collecting' && (
+            <form onSubmit={handleValidateAndReview} className={`p-6 sm:p-7 rounded-xl border ${borderTone} shadow-sm space-y-5 ${cardBg}`}>
+              {(domain === 'banking' || domain === 'education') && (
+                <div className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} flex items-center gap-2 text-xs font-mono font-medium`}>
+                  <ShieldAlert className="w-4 h-4 text-[#655A7C] shrink-0" />
+                  <span>
+                    {isSimpleLanguage 
+                      ? "Security Warning: Do not type your passwords, PINs, or OTPs here." 
+                      : "Security Notice: Never enter passwords, pins, OTPs, or sensitive login credentials here."}
+                  </span>
+                </div>
+              )}
+
+              {config.fields.map(field => (
+                <div key={field.id} className="flex flex-col gap-1.5">
+                  <label className="text-xs font-mono font-bold uppercase tracking-wider">
+                    {field.label} {field.required && <span className="opacity-70">*</span>}
+                  </label>
+                  {field.type === 'select' ? (
+                    <select
+                      value={entities[field.id] || ''}
+                      onChange={(e) => handleInputChange(field.id, e.target.value)}
+                      className={`p-3 w-full font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardInnerBg} ${borderTone} focus:border-[#655A7C]`}
+                    >
+                      <option value="" disabled className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>-- Select Parameter --</option>
+                      {field.options.map(opt => (
+                        <option key={opt} value={opt} className={isDarkTheme ? 'bg-[#655A7C]' : 'bg-[#FDF1E2]'}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={field.type}
+                      value={entities[field.id] || ''}
+                      onChange={(e) => handleInputChange(field.id, e.target.value)}
+                      onClick={(e) => { if (field.type === 'date' || field.type === 'time') e.target.showPicker?.() }}
+                      placeholder={field.placeholder || 'Enter detail...'}
+                      className={`p-3 w-full font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardInnerBg} ${borderTone} focus:border-[#655A7C] cursor-pointer`}
+                    />
+                  )}
+                  {errors[field.id] && (
+                    <p className="text-[11px] font-mono font-bold text-red-500">{errors[field.id]}</p>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="submit"
+                className={`w-full py-3.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 ${accentSolid}`}
               >
-                Return to {domain.toUpperCase()}
-              </Link>
+                <span>{isSimpleLanguage ? 'Create Card' : 'Build Handoff Card'}</span>
+                <FileText className="w-4 h-4" />
+              </button>
+            </form>
+          )}
+
+          {/* STATE 2: Review (User reviews generated card & share options) */}
+          {currentState === 'review' && (
+            <div className="space-y-6">
+              <div className={`p-6 sm:p-7 rounded-xl border ${borderTone} space-y-4 shadow-sm ${cardBg}`}>
+                <div className="flex items-center justify-between border-b pb-3.5" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+                  <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded border ${borderTone} ${cardInnerBg} inline-block`}>
+                    {isSimpleLanguage ? 'YOUR CARD' : 'PREPARED HANDOFF CARD'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setShowShareModal(true)}
+                      className={`text-[10px] font-mono font-bold px-2 py-1 rounded border ${borderTone} hover:opacity-80 transition-all flex items-center gap-1 bg-transparent`}
+                      title="Export or Share Card"
+                    >
+                      <Share2 className="w-3 h-3" /> <span className="hidden sm:inline">Export</span>
+                    </button>
+                    <span className="text-[11px] font-mono font-bold opacity-75">Ready to Present</span>
+                  </div>
+                </div>
+                <p className="text-lg sm:text-xl font-black leading-relaxed whitespace-pre-line">
+                  "{config.templates.review(entities)}"
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleBack}
+                  className={`sm:w-1/3 py-3 rounded-lg border ${borderTone} font-bold text-xs uppercase tracking-wider hover:opacity-80 transition-all ${cardBg}`}
+                >
+                  ← {isSimpleLanguage ? 'Edit Info' : 'Edit Parameters'}
+                </button>
+                <button
+                  onClick={() => transitionTo('awaiting_confirmation')}
+                  className={`sm:w-2/3 py-3 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all hover:opacity-90 ${accentSolid}`}
+                >
+                  {isSimpleLanguage ? 'Show to Staff →' : 'Hand Device to Official →'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STATE 3: Awaiting Confirmation (Handoff to Teller / Staff) */}
+          {currentState === 'awaiting_confirmation' && (
+            <div className="space-y-6">
+              
+              {/* Communication Mode Accessibility Bar */}
+              <div className={`p-2.5 rounded-xl border ${borderTone} flex items-center justify-between shadow-sm bg-black/5 dark:bg-white/5`}>
+                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 opacity-70">
+                   Communicate Via:
+                 </span>
+                 <div className="flex items-center gap-2">
+                   <button 
+                      onClick={() => setIsLargeTextMode(true)}
+                      className={`px-3 py-1.5 rounded-lg border ${borderTone} ${cardInnerBg} text-xs font-bold uppercase tracking-wider hover:opacity-80 transition-all flex items-center gap-1.5`}
+                   >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Large Text</span>
+                   </button>
+                   <button 
+                      onClick={speakText}
+                      className={`px-3 py-1.5 rounded-lg border ${borderTone} text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5
+                        ${isSpeaking ? 'bg-green-500 text-white border-green-600 animate-pulse' : `${cardInnerBg} hover:opacity-80`}`}
+                   >
+                      <Volume2 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{isSpeaking ? 'Reading...' : 'Read Aloud'}</span>
+                   </button>
+                 </div>
+              </div>
+
+              <div className={`p-4 rounded-xl border ${borderTone} text-center font-bold text-xs sm:text-sm bg-[#AB92BF]/25 shadow-sm`}>
+                👋 Hand this device across the counter to the branch official, faculty, or receptionist.
+              </div>
+
+              <div className={`p-6 sm:p-7 rounded-xl border ${borderTone} space-y-3 shadow-sm ${cardInnerBg}`}>
+                <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${borderTone} ${cardBg} inline-block`}>
+                  {isSimpleLanguage ? 'MESSAGE FOR YOU' : 'VISUAL COMMUNICATION REQUEST'}
+                </span>
+                <p className="text-xl sm:text-2xl font-black leading-snug whitespace-pre-line">
+                  "{config.templates.review(entities)}"
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-xs font-mono font-bold uppercase tracking-wider block opacity-85">
+                  {isSimpleLanguage ? 'Staff: Please tap a reply below' : 'Staff / Official: Tap Your Official Action'}
+                </label>
+                <div className="grid grid-cols-1 gap-2.5">
+                  {(config.staffOptions || COMMON_STAFF_RESPONSES).map(option => (
+                    <button
+                      key={option}
+                      onClick={() => handleStaffSelect(option)}
+                      className={`w-full text-left p-4 rounded-xl font-bold text-xs sm:text-sm border transition-all ${cardBg} ${borderTone} hover:border-[#655A7C] active:scale-[0.99]`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <label className="text-xs font-mono font-bold uppercase tracking-wider block opacity-85">
+                  {isSimpleLanguage ? 'Or type a custom reply:' : 'Or Type a Written Note:'}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    id="customStaffText"
+                    placeholder={isSimpleLanguage ? 'Type here...' : 'Type official reply or desk number...'}
+                    className={`p-3 flex-1 font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardInnerBg} ${borderTone} focus:border-[#655A7C]`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.target.value.trim()) {
+                        handleStaffSelect(null, e.target.value.trim());
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      const val = document.getElementById('customStaffText')?.value;
+                      if (val?.trim()) {
+                        handleStaffSelect(null, val.trim());
+                      }
+                    }}
+                    className={`px-5 py-3 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all hover:opacity-90 flex items-center gap-1.5 ${accentSolid}`}
+                  >
+                    <span>Confirm</span>
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={handleBack}
+                className={`w-full border border-dashed ${borderTone} py-3 rounded-lg text-xs font-mono font-bold uppercase tracking-wider hover:opacity-80 transition-all ${cardBg}`}
+              >
+                ← Return Device to User (Go Back)
+              </button>
+            </div>
+          )}
+
+          {/* STATE 4: Completed (Handback Resolution Receipt) */}
+          {currentState === 'completed' && (
+            <div className="space-y-6 text-center py-6">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl mx-auto shadow-sm ${accentSolid}`}>
+                <Check className="w-7 h-7" />
+              </div>
+              
+              <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">
+                {isSimpleLanguage ? 'Finished' : 'Interaction Logged & Complete'}
+              </h2>
+
+              <div className={`p-6 rounded-xl border ${borderTone} text-left max-w-lg mx-auto space-y-4 shadow-sm ${cardBg}`}>
+                <div>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1">
+                    Official Response Recorded
+                  </span>
+                  <p className="text-lg sm:text-xl font-black">
+                    {staffResponse}
+                  </p>
+                </div>
+
+                <div className="border-t pt-3.5" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1">
+                    {isSimpleLanguage ? 'Saved Summary' : 'Final Session Record'}
+                  </span>
+                  <p className={`text-xs sm:text-sm font-medium leading-relaxed ${textSecondary}`}>
+                    {config.templates.completed(entities, staffResponse)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-center gap-3 pt-2">
+                <Link
+                  href={`/${domain}`}
+                  className={`inline-block px-7 py-3 rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm hover:opacity-90 transition-all ${accentSolid}`}
+                >
+                  Return to {domain.toUpperCase()}
+                </Link>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* Footer System Anchor */}
+        <footer className={`border-t py-6 px-4 sm:px-6 lg:px-8 ${borderTone} ${cardInnerBg} mb-12 sm:mb-0`}>
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center text-xs font-mono gap-3">
+            <p className="font-bold">SignMitra Engine • Multi-Domain State Engine</p>
+            <div className="flex items-center gap-2 font-medium">
+              <span className={`w-2 h-2 rounded-full animate-pulse ${isDarkTheme ? 'bg-[#FDF1E2]' : 'bg-[#655A7C]'}`}></span>
+              <span>Deterministic Workflow Core Active</span>
             </div>
           </div>
-        )}
-      </main>
-
-      {/* Footer System Anchor */}
-      <footer className={`border-t py-6 px-4 sm:px-6 lg:px-8 ${borderTone} ${cardInnerBg}`}>
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center text-xs font-mono gap-3">
-          <p className="font-bold">SignMitra Engine • Multi-Domain State Engine</p>
-          <div className="flex items-center gap-2 font-medium">
-            <span className={`w-2 h-2 rounded-full animate-pulse ${isDarkTheme ? 'bg-[#FDF1E2]' : 'bg-[#655A7C]'}`}></span>
-            <span>Deterministic Workflow Core Active</span>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }

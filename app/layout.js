@@ -6,7 +6,6 @@ export const metadata = {
   title: 'SignMitra — Communication Companion',
   description: 'A privacy-focused, stateful accessibility platform for Indian Sign Language users.',
   manifest: '/manifest.json', 
-  themeColor: '#655A7C',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -14,14 +13,18 @@ export const metadata = {
   },
 };
 
+// Moved themeColor and viewport settings here to resolve Next.js warnings
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1.0,
+  maximumScale: 5.0,
+  themeColor: '#655A7C',
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
-        />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className="antialiased transition-colors duration-150">

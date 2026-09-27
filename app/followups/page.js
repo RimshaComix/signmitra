@@ -20,7 +20,7 @@ import {
   ChevronDown,
   ChevronUp,
   ShieldCheck,
-  RotateCcw
+  CheckCircle2
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -84,6 +84,8 @@ export default function UniversalFollowUpPlanner() {
   const [checklist, setChecklist] = useState([]); // Array of { id, text, completed }
   const [progressInput, setProgressInput] = useState('');
   const [progressUpdates, setProgressUpdates] = useState([]); // Array of { id, text, timestamp }
+  // Read-only state for UI rendering in edit mode
+  const [isStaffVerified, setIsStaffVerified] = useState(false);
 
   useEffect(() => {
     try {
@@ -103,7 +105,9 @@ export default function UniversalFollowUpPlanner() {
         status: item.status || 'Planned',
         notes: item.notes || '',
         checklist: item.checklist || [],
-        progressUpdates: item.progressUpdates || []
+        progressUpdates: item.progressUpdates || [],
+        // Preserve the verifiedByStaff flag
+        verifiedByStaff: item.verifiedByStaff || false 
       }));
       setFollowUps(migrated);
     } catch (e) {
@@ -136,6 +140,7 @@ export default function UniversalFollowUpPlanner() {
     setNotes('');
     setChecklist([]);
     setProgressUpdates([]);
+    setIsStaffVerified(false);
     setIsCreating(false);
     setEditingId(null);
   };
@@ -154,6 +159,7 @@ export default function UniversalFollowUpPlanner() {
     setNotes(item.notes);
     setChecklist(item.checklist || []);
     setProgressUpdates(item.progressUpdates || []);
+    setIsStaffVerified(item.verifiedByStaff || false);
     setEditingId(item.id);
     setIsCreating(true);
   };
@@ -178,7 +184,9 @@ export default function UniversalFollowUpPlanner() {
       status,
       notes: notes.trim(),
       checklist,
-      progressUpdates
+      progressUpdates,
+      // If editing, preserve the original verification state. If new, it's manually user-entered so it's false.
+      verifiedByStaff: editingId ? isStaffVerified : false 
     };
 
     if (editingId) {
@@ -256,7 +264,6 @@ export default function UniversalFollowUpPlanner() {
   return (
     <div suppressHydrationWarning className={`min-h-screen transition-colors duration-200 font-sans antialiased flex flex-col ${bgCanvas} ${textPrimary}`}>
       
-      {/* Bulletproof CSS to hide scrollbar but keep functionality */}
       <style dangerouslySetInnerHTML={{__html: `
         .no-scrollbar::-webkit-scrollbar {
           display: none;
@@ -283,16 +290,16 @@ export default function UniversalFollowUpPlanner() {
         </div>
       </div>
 
-      <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 pb-28">
+      <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 pb-28">
         
-        <header className={`rounded-xl border ${borderTone} p-6 mb-8 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${cardBg}`}>
+        <header className={`rounded-xl border ${borderTone} p-5 sm:p-6 mb-6 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 ${cardBg}`}>
           <div>
-            <div className={`inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md border ${borderTone} ${cardInnerBg} text-[10px] font-mono font-bold uppercase tracking-wider mb-2`}>
+            <div className={`inline-flex items-center gap-2 px-2 py-0.5 rounded border ${borderTone} ${cardInnerBg} text-[10px] font-mono font-bold uppercase tracking-wider mb-2`}>
               <CalendarClock className="w-3.5 h-3.5" />
               ACTIONABLE LIFECYCLE TRACKER
             </div>
             <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">Universal Follow-Up & Action Planner</h1>
-            <p className={`text-xs sm:text-sm mt-1 max-w-xl leading-relaxed ${textSecondary}`}>
+            <p className={`text-xs sm:text-sm mt-1 max-w-xl leading-relaxed font-medium ${textSecondary}`}>
               Manage post-interaction actions, hospital visits, bank disputes, document submissions, and personal reminders.
             </p>
           </div>
@@ -300,7 +307,7 @@ export default function UniversalFollowUpPlanner() {
           {!isCreating && (
             <button
               onClick={() => { resetForm(); setIsCreating(true); }}
-              className={`px-5 py-3 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 ${accentSolid} hover:opacity-90 shrink-0`}
+              className={`w-full sm:w-auto px-5 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 ${accentSolid} hover:opacity-90 shrink-0`}
             >
               <Plus className="w-4 h-4" />
               <span>New Follow-Up</span>
@@ -310,11 +317,18 @@ export default function UniversalFollowUpPlanner() {
 
         {/* CREATION / EDITING FORM MODAL */}
         {isCreating && (
-          <form onSubmit={handleSubmit} className={`p-6 mb-8 rounded-xl border ${borderTone} shadow-sm space-y-5 ${cardBg}`}>
-            <div className="flex justify-between items-center border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
-              <h3 className="font-black uppercase tracking-tight text-base">
-                {editingId ? 'Edit Follow-Up Task' : 'Create New Follow-Up'}
-              </h3>
+          <form onSubmit={handleSubmit} className={`p-5 sm:p-6 mb-6 rounded-xl border ${borderTone} shadow-sm space-y-5 ${cardBg} animate-in fade-in duration-200`}>
+            <div className="flex justify-between items-start border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+              <div>
+                <h3 className="font-black uppercase tracking-tight text-base">
+                  {editingId ? 'Edit Follow-Up Task' : 'Create New Follow-Up'}
+                </h3>
+                {editingId && isStaffVerified && (
+                  <span className="mt-1 text-[10px] font-mono font-bold uppercase tracking-widest text-green-600 dark:text-green-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Derived from verified staff response
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={resetForm}
@@ -485,7 +499,7 @@ export default function UniversalFollowUpPlanner() {
                   <button
                     type="button"
                     onClick={addChecklistFormItem}
-                    className={`px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider border ${borderTone} ${cardInnerBg} hover:opacity-80`}
+                    className={`px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider border ${borderTone} ${cardBg} hover:opacity-80 transition-all`}
                   >
                     Add Step
                   </button>
@@ -493,7 +507,7 @@ export default function UniversalFollowUpPlanner() {
                 {checklist.length > 0 && (
                   <div className="space-y-1.5 pt-2">
                     {checklist.map(chk => (
-                      <div key={chk.id} className={`flex justify-between items-center p-2 rounded-lg border ${borderTone} ${cardInnerBg} text-xs font-medium`}>
+                      <div key={chk.id} className={`flex justify-between items-center p-2 rounded-lg border ${borderTone} ${cardBg} text-xs font-medium`}>
                         <span>• {chk.text}</span>
                         <button type="button" onClick={() => removeChecklistFormItem(chk.id)} className="text-red-500 font-bold hover:opacity-75">Remove</button>
                       </div>
@@ -503,17 +517,17 @@ export default function UniversalFollowUpPlanner() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-3 border-t" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
               <button
                 type="button"
                 onClick={resetForm}
-                className={`px-5 py-3 rounded-lg border ${borderTone} font-bold text-xs uppercase tracking-wider hover:opacity-80 transition-all`}
+                className={`w-full sm:w-auto px-5 py-3.5 rounded-xl border ${borderTone} font-bold text-xs uppercase tracking-wider hover:opacity-80 transition-all`}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className={`px-7 py-3 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all ${accentSolid} hover:opacity-90`}
+                className={`w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm transition-all ${accentSolid} hover:opacity-90`}
               >
                 {editingId ? 'Save Changes' : 'Create Follow-Up'}
               </button>
@@ -530,7 +544,7 @@ export default function UniversalFollowUpPlanner() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold uppercase tracking-wider transition-all whitespace-nowrap
+                  className={`px-4 py-2 rounded-lg border text-xs font-mono font-bold uppercase tracking-wider transition-all whitespace-nowrap
                     ${activeTab === tab ? accentSolid + ' border-transparent' : `${cardBg}${borderTone} hover:opacity-80`}`}
                 >
                   {tab}
@@ -539,7 +553,7 @@ export default function UniversalFollowUpPlanner() {
             </div>
 
             {/* Search Input */}
-            <div className={`relative w-full sm:w-64 rounded-lg border ${borderTone} ${cardBg} overflow-hidden`}>
+            <div className={`relative w-full sm:w-64 rounded-xl border ${borderTone} ${cardBg} overflow-hidden shadow-sm`}>
               <Search className="absolute left-3 top-3 w-4 h-4 opacity-50" />
               <input
                 type="text"
@@ -565,54 +579,63 @@ export default function UniversalFollowUpPlanner() {
               const isExpanded = expandedId === item.id;
               const isOverdue = item.dueDate < todayStr && item.status !== 'Completed' && item.status !== 'Cancelled';
               const isCompleted = item.status === 'Completed' || item.status === 'Cancelled';
+              const isVerified = item.verifiedByStaff === true;
 
               return (
                 <div key={item.id} className={`rounded-xl border ${borderTone} ${cardBg} shadow-sm overflow-hidden transition-all ${isCompleted ? 'opacity-60' : ''}`}>
                   
                   {/* Main Card Bar */}
                   <div className="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="space-y-2 flex-1">
+                    <div className="space-y-2 flex-1 w-full min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
                           isCompleted ? 'bg-slate-500 text-white' : isOverdue ? 'bg-red-500 text-white animate-pulse' : accentSolid
                         }`}>
                           {isOverdue ? 'Overdue' : item.status}
                         </span>
-                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${borderTone} ${cardInnerBg} uppercase tracking-wider`}>
+                        
+                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded border ${borderTone} ${cardInnerBg} uppercase tracking-wider truncate max-w-[120px]`}>
                           {item.category}
                         </span>
-                        <span className="text-[10px] font-mono font-bold opacity-65 flex items-center gap-1">
+
+                        {isVerified && (
+                          <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded border border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400 uppercase tracking-wider flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Staff Verified
+                          </span>
+                        )}
+
+                        <span className="text-[10px] font-mono font-bold opacity-65 flex items-center gap-1 sm:ml-auto">
                           <Clock className="w-3 h-3" /> Due: {item.dueDate}
                         </span>
                       </div>
 
-                      <h3 className={`font-black uppercase tracking-tight text-base sm:text-lg ${isCompleted ? 'line-through' : ''}`}>
+                      <h3 className={`font-black uppercase tracking-tight text-base sm:text-lg truncate pr-2 ${isCompleted ? 'line-through' : ''}`}>
                         {item.title}
                       </h3>
 
                       {item.nextAction && (
-                        <p className="text-xs sm:text-sm font-bold opacity-90">
+                        <p className="text-xs sm:text-sm font-bold opacity-90 leading-snug">
                           <span className="font-mono uppercase text-[10px] opacity-70 block">Next Action:</span>
                           👉 {item.nextAction}
                         </p>
                       )}
 
                       {item.contactPerson && (
-                        <div className="flex items-center gap-2 text-xs font-mono opacity-80">
+                        <div className="flex items-center gap-2 text-xs font-mono opacity-80 pt-1">
                           <Building className="w-3.5 h-3.5 text-[#655A7C]" />
-                          <span>{item.contactPerson} {item.contactDetails ? `(${item.contactDetails})` : ''}</span>
+                          <span className="truncate">{item.contactPerson} {item.contactDetails ? `(${item.contactDetails})` : ''}</span>
                         </div>
                       )}
                     </div>
 
                     {/* Quick Actions */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 shrink-0" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
                       <button
                         onClick={() => {
                           const nextStatus = isCompleted ? 'Planned' : 'Completed';
                           saveToStorage(followUps.map(f => f.id === item.id ? { ...f, status: nextStatus } : f));
                         }}
-                        className={`p-2 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all text-xs font-mono font-bold flex items-center gap-1`}
+                        className={`p-2.5 sm:p-2 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all text-xs font-mono font-bold flex items-center gap-1`}
                         title="Toggle Completion"
                       >
                         <CheckCircle className="w-4 h-4 text-green-600" />
@@ -621,7 +644,7 @@ export default function UniversalFollowUpPlanner() {
 
                       <button
                         onClick={() => handleOpenEdit(item)}
-                        className={`p-2 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all`}
+                        className={`p-2.5 sm:p-2 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all`}
                         title="Edit Task"
                       >
                         <Edit3 className="w-4 h-4" />
@@ -629,50 +652,42 @@ export default function UniversalFollowUpPlanner() {
 
                       <button
                         onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                        className={`p-2 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all`}
+                        className={`p-2.5 sm:p-2 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all`}
                         title="Toggle Details"
                       >
                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="p-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 hover:opacity-75 transition-all"
-                        title="Delete Task"
-                      >
-                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
 
                   {/* EXPANDED DETAILS & PROGRESS UPDATES */}
                   {isExpanded && (
-                    <div className={`p-5 pt-0 border-t ${borderTone} bg-black/5 dark:bg-white/5 space-y-4`}>
+                    <div className={`p-5 pt-0 border-t ${borderTone} bg-black/5 dark:bg-white/5 space-y-5 animate-in slide-in-from-top-2 duration-200`}>
                       
                       {item.situation && (
-                        <div className="pt-3">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-0.5">Situation Context</span>
-                          <p className="text-xs sm:text-sm font-medium">{item.situation}</p>
+                        <div className="pt-4">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1">Situation Context</span>
+                          <p className="text-xs sm:text-sm font-medium leading-relaxed">{item.situation}</p>
                         </div>
                       )}
 
                       {item.notes && (
                         <div>
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-0.5">Notes & Details</span>
-                          <p className="text-xs sm:text-sm font-medium">{item.notes}</p>
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1">Notes & Details</span>
+                          <p className="text-xs sm:text-sm font-medium leading-relaxed">{item.notes}</p>
                         </div>
                       )}
 
                       {/* Checklist Section */}
                       {item.checklist && item.checklist.length > 0 && (
                         <div className="space-y-1.5 pt-2">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block">Checklist Progress</span>
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-2">Checklist Progress</span>
                           <div className="space-y-1">
                             {item.checklist.map(chk => (
                               <button
                                 key={chk.id}
                                 onClick={() => toggleChecklist(item.id, chk.id)}
-                                className={`w-full text-left p-2 rounded-lg border ${borderTone} ${cardInnerBg} text-xs font-bold flex items-center gap-2 hover:opacity-80 transition-all`}
+                                className={`w-full text-left p-3 rounded-lg border ${borderTone} ${cardBg} text-xs font-bold flex items-center gap-3 hover:opacity-80 transition-all`}
                               >
                                 {chk.completed ? <CheckSquare className="w-4 h-4 text-green-600 shrink-0" /> : <Square className="w-4 h-4 opacity-50 shrink-0" />}
                                 <span className={chk.completed ? 'line-through opacity-70' : ''}>{chk.text}</span>
@@ -683,13 +698,13 @@ export default function UniversalFollowUpPlanner() {
                       )}
 
                       {/* Progress Updates Log */}
-                      <div className="space-y-2 pt-2 border-t" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+                      <div className="space-y-3 pt-3 border-t" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block">Progress Log & Timestamp History</span>
                         
                         {item.progressUpdates && item.progressUpdates.length > 0 ? (
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {item.progressUpdates.map(prog => (
-                              <div key={prog.id} className={`p-2.5 rounded-lg border ${borderTone} ${cardInnerBg} text-xs space-y-0.5`}>
+                              <div key={prog.id} className={`p-3 rounded-xl border ${borderTone} ${cardBg} text-xs space-y-1`}>
                                 <div className="flex justify-between font-mono text-[10px] opacity-60">
                                   <span>Update</span>
                                   <span>{prog.timestamp}</span>
@@ -709,17 +724,26 @@ export default function UniversalFollowUpPlanner() {
                             value={progressInput}
                             onChange={(e) => setProgressInput(e.target.value)}
                             placeholder="Add progress update (e.g., Spoke with manager)..."
-                            className={`p-2 flex-1 font-bold border rounded-lg text-xs outline-none ${cardInnerBg} ${borderTone}`}
+                            className={`p-3 flex-1 font-bold border rounded-lg text-xs outline-none ${cardBg} ${borderTone} focus:border-[#655A7C]`}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addProgressUpdate(item.id); }}}
                           />
                           <button
                             type="button"
                             onClick={() => addProgressUpdate(item.id)}
-                            className={`px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider ${accentSolid} hover:opacity-90`}
+                            className={`px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider ${accentSolid} hover:opacity-90 transition-all`}
                           >
                             Log
                           </button>
                         </div>
+                      </div>
+                      
+                      <div className="flex justify-end pt-3 border-t border-black/10 dark:border-white/10">
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="text-xs font-mono font-bold text-red-500 hover:opacity-75 transition-all flex items-center gap-1.5 px-2 py-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Delete Task
+                        </button>
                       </div>
 
                     </div>

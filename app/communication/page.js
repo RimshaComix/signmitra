@@ -21,7 +21,8 @@ import {
   Maximize2,
   Minimize2,
   Share2,
-  Printer
+  Printer,
+  CheckSquare
 } from 'lucide-react';
 
 /* 
@@ -440,6 +441,12 @@ function CommunicationCanvasBody() {
   const [errors, setErrors] = useState({});
   const [serverSessionId, setServerSessionId] = useState(null);
   
+  // Custom Card Editing & A11y
+  const [customCardText, setCustomCardText] = useState('');
+  const [isEditingCard, setIsEditingCard] = useState(false);
+  const [showA11yCheck, setShowA11yCheck] = useState(false);
+  const [a11yChecks, setA11yChecks] = useState({ action: false, jargon: false });
+
   // Communication Mode states
   const [isLargeTextMode, setIsLargeTextMode] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -505,6 +512,8 @@ function CommunicationCanvasBody() {
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
     } else {
+      // Generate the initial text and load it into the custom text state for editing
+      setCustomCardText(config.templates.review(entities));
       transitionTo('review', entities);
     }
   };
@@ -557,7 +566,7 @@ function CommunicationCanvasBody() {
       return;
     }
 
-    const textToRead = config.templates.review(entities);
+    const textToRead = customCardText || config.templates.review(entities);
     const utterance = new SpeechSynthesisUtterance(textToRead);
     
     const voices = window.speechSynthesis.getVoices();
@@ -579,7 +588,7 @@ function CommunicationCanvasBody() {
   };
 
   const handleNativeShare = async () => {
-    const shareText = config.templates.review(entities);
+    const shareText = customCardText || config.templates.review(entities);
     if (navigator.share) {
       try {
         await navigator.share({
@@ -597,7 +606,6 @@ function CommunicationCanvasBody() {
 
   const handlePrintPDF = () => {
     setShowShareModal(false);
-    // Add slight delay to allow modal to close before printing
     setTimeout(() => {
       window.print();
     }, 100);
@@ -606,14 +614,11 @@ function CommunicationCanvasBody() {
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans antialiased selection:bg-[#655A7C] selection:text-[#FDF1E2] flex flex-col justify-between ${bgCanvas} ${textPrimary}`}>
       
-      {/* 
-        PRINT STYLES (Tailwind Print Modifiers)
-        This ensures only the actual communication card text prints when exported to PDF.
-      */}
+      {/* PRINT STYLES */}
       <div className="hidden print:block print:p-8 print:w-full print:bg-white print:text-black">
          <h1 className="text-3xl font-black mb-6 uppercase border-b-2 border-black pb-4">SignMitra Communication Request</h1>
          <p className="text-2xl font-bold leading-relaxed whitespace-pre-line">
-            {config.templates.review(entities)}
+            {customCardText || config.templates.review(entities)}
          </p>
          <div className="mt-12 text-sm font-mono opacity-50">
            Generated securely on device • No cloud storage
@@ -712,7 +717,7 @@ function CommunicationCanvasBody() {
             </div>
             <div className="my-auto">
               <p className="text-3xl sm:text-5xl md:text-6xl font-black leading-tight whitespace-pre-line tracking-tight">
-                {config.templates.review(entities)}
+                {customCardText || config.templates.review(entities)}
               </p>
             </div>
           </div>
@@ -753,7 +758,7 @@ function CommunicationCanvasBody() {
             </div>
           </header>
 
-          {/* STATE 1: Collecting (User inputs parameters) */}
+          {/* STATE 1: Collecting */}
           {currentState === 'collecting' && (
             <form onSubmit={handleValidateAndReview} className={`p-6 sm:p-7 rounded-xl border ${borderTone} shadow-sm space-y-5 ${cardBg}`}>
               {(domain === 'banking' || domain === 'education') && (
@@ -811,9 +816,9 @@ function CommunicationCanvasBody() {
             </form>
           )}
 
-          {/* STATE 2: Review (User reviews generated card & share options) */}
+          {/* STATE 2: Review (User reviews, edits, and checks a11y) */}
           {currentState === 'review' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-300">
               <div className={`p-6 sm:p-7 rounded-xl border ${borderTone} space-y-4 shadow-sm ${cardBg}`}>
                 <div className="flex items-center justify-between border-b pb-3.5" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
                   <span className={`text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded border ${borderTone} ${cardInnerBg} inline-block`}>
@@ -830,9 +835,68 @@ function CommunicationCanvasBody() {
                     <span className="text-[11px] font-mono font-bold opacity-75">Ready to Present</span>
                   </div>
                 </div>
-                <p className="text-lg sm:text-xl font-black leading-relaxed whitespace-pre-line">
-                  "{config.templates.review(entities)}"
-                </p>
+                
+                {isEditingCard ? (
+                  <textarea
+                    value={customCardText}
+                    onChange={(e) => setCustomCardText(e.target.value)}
+                    className={`w-full p-4 font-black text-lg sm:text-xl leading-relaxed border rounded-xl outline-none ${cardInnerBg} ${borderTone} focus:border-[#655A7C] transition-all`}
+                    rows={5}
+                  />
+                ) : (
+                  <p className="text-lg sm:text-xl font-black leading-relaxed whitespace-pre-line">
+                    "{customCardText}"
+                  </p>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                   <button 
+                      onClick={() => setIsEditingCard(!isEditingCard)} 
+                      className={`text-xs font-mono font-bold uppercase tracking-wider transition-all hover:opacity-100 ${isEditingCard ? 'opacity-100 ' + accentSolid + ' px-3 py-1.5 rounded' : 'opacity-70'}`}
+                    >
+                     {isEditingCard ? 'Save Edits' : 'Edit Text'}
+                   </button>
+                </div>
+              </div>
+
+              {/* ACCESSIBILITY CHECKER MODAL (Inline) */}
+              <div className={`p-5 rounded-xl border ${borderTone} ${cardInnerBg} shadow-sm transition-all`}>
+                <button 
+                  onClick={() => setShowA11yCheck(!showA11yCheck)}
+                  className="w-full flex items-center justify-between font-bold text-xs sm:text-sm uppercase tracking-wider"
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4 text-green-600" />
+                    Pre-Flight Accessibility Check
+                  </div>
+                  {showA11yCheck ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+                
+                {showA11yCheck && (
+                  <div className="mt-4 space-y-3 pt-4 border-t animate-in slide-in-from-top-2 duration-200" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input type="checkbox" checked={customCardText.split(' ').length < 40} readOnly className="mt-1 w-4 h-4 accent-[#655A7C]" />
+                      <div>
+                        <span className="font-bold text-sm block group-hover:opacity-80">Is it short and clear? (Under 40 words)</span>
+                        <span className="text-xs opacity-70">Current word count: {customCardText.split(' ').length}. Shorter is better.</span>
+                      </div>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input type="checkbox" checked={a11yChecks.action} onChange={(e) => setA11yChecks({...a11yChecks, action: e.target.checked})} className="mt-1 w-4 h-4 accent-[#655A7C]" />
+                      <div>
+                        <span className="font-bold text-sm block group-hover:opacity-80">Is the next action obvious?</span>
+                        <span className="text-xs opacity-70">Make sure the staff knows exactly what you want them to do next.</span>
+                      </div>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input type="checkbox" checked={a11yChecks.jargon} onChange={(e) => setA11yChecks({...a11yChecks, jargon: e.target.checked})} className="mt-1 w-4 h-4 accent-[#655A7C]" />
+                      <div>
+                        <span className="font-bold text-sm block group-hover:opacity-80">Are abbreviations explained?</span>
+                        <span className="text-xs opacity-70">Avoid complex medical or banking jargon if possible.</span>
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3">
@@ -840,7 +904,7 @@ function CommunicationCanvasBody() {
                   onClick={handleBack}
                   className={`sm:w-1/3 py-3 rounded-lg border ${borderTone} font-bold text-xs uppercase tracking-wider hover:opacity-80 transition-all ${cardBg}`}
                 >
-                  ← {isSimpleLanguage ? 'Edit Info' : 'Edit Parameters'}
+                  ← {isSimpleLanguage ? 'Go Back' : 'Edit Parameters'}
                 </button>
                 <button
                   onClick={() => transitionTo('awaiting_confirmation')}
@@ -854,9 +918,8 @@ function CommunicationCanvasBody() {
 
           {/* STATE 3: Awaiting Confirmation (Handoff to Teller / Staff) */}
           {currentState === 'awaiting_confirmation' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-300">
               
-              {/* Communication Mode Accessibility Bar */}
               <div className={`p-2.5 rounded-xl border ${borderTone} flex items-center justify-between shadow-sm bg-black/5 dark:bg-white/5`}>
                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 opacity-70">
                    Communicate Via:
@@ -889,7 +952,7 @@ function CommunicationCanvasBody() {
                   {isSimpleLanguage ? 'MESSAGE FOR YOU' : 'VISUAL COMMUNICATION REQUEST'}
                 </span>
                 <p className="text-xl sm:text-2xl font-black leading-snug whitespace-pre-line">
-                  "{config.templates.review(entities)}"
+                  "{customCardText || config.templates.review(entities)}"
                 </p>
               </div>
 
@@ -950,9 +1013,9 @@ function CommunicationCanvasBody() {
             </div>
           )}
 
-          {/* STATE 4: Completed (Handback Resolution Receipt) */}
+          {/* STATE 4: Completed */}
           {currentState === 'completed' && (
-            <div className="space-y-6 text-center py-6">
+            <div className="space-y-6 text-center py-6 animate-in zoom-in-95 duration-300">
               <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl mx-auto shadow-sm ${accentSolid}`}>
                 <Check className="w-7 h-7" />
               </div>
@@ -993,7 +1056,6 @@ function CommunicationCanvasBody() {
           )}
         </main>
 
-        {/* Footer System Anchor */}
         <footer className={`border-t py-6 px-4 sm:px-6 lg:px-8 ${borderTone} ${cardInnerBg} mb-12 sm:mb-0`}>
           <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center text-xs font-mono gap-3">
             <p className="font-bold">SignMitra Engine • Multi-Domain State Engine</p>

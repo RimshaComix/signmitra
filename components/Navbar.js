@@ -31,7 +31,8 @@ export default function Navbar() {
         .nav-scroll::-webkit-scrollbar { display: none; }
         .nav-scroll { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
-      <div className="max-w-md mx-auto px-2 sm:px-4 h-16 flex items-center justify-start sm:justify-between overflow-x-auto nav-scroll gap-1 sm:gap-0">
+      {/* ONLY CHANGED: max-w-md -> max-w-xl */}
+      <div className="max-w-xl mx-auto px-2 sm:px-4 h-16 flex items-center justify-start sm:justify-center overflow-x-auto nav-scroll gap-1 sm:gap-0">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.path;

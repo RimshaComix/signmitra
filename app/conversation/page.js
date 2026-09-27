@@ -18,7 +18,9 @@ import {
   CheckSquare,
   FileDown,
   X,
-  CalendarClock
+  CalendarClock,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 const REPAIR_PHRASES = [
@@ -33,18 +35,26 @@ export default function ConversationAssist() {
   const { bgCanvas, textPrimary, textSecondary, cardBg, cardInnerBg, borderTone, accentSolid, isDarkTheme } = useTheme();
 
   const [messages, setMessages] = useState([
-    { id: 1, sender: 'user', text: 'Hello, I am using SignMitra to assist with our communication. Please type your responses below.', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+    { 
+      id: 1, 
+      sender: 'intro', 
+      text: 'Hello, I am using SignMitra to assist with our communication. Please type your responses below.', 
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+    }
   ]);
-  const [inputText, setInputText] = useState('');
+  
+  const [userText, setUserText] = useState('');
+  const [staffText, setStaffText] = useState('');
   const [activeLargeText, setActiveLargeText] = useState(null);
   const [speakingId, setSpeakingId] = useState(null);
   
-  // Toolkit States
   const [showRepairToolkit, setShowRepairToolkit] = useState(false);
   const [showConfirmBack, setShowConfirmBack] = useState(false);
   const [confirmBackText, setConfirmBackText] = useState('');
 
-  // Summary & Next-Step Capture States
+  // Confirmation Model State
+  const [sessionVerified, setSessionVerified] = useState(false);
+
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryAsked, setSummaryAsked] = useState('');
   const [summaryReplied, setSummaryReplied] = useState('');
@@ -56,18 +66,19 @@ export default function ConversationAssist() {
   const chatBottomRef = useRef(null);
 
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, showRepairToolkit, showConfirmBack]);
 
-  const handleSendMessage = (textToSend = null, isConfirmBack = false) => {
-    const content = textToSend || inputText;
+  const handleUserMessage = (textToSend = null, isConfirmBack = false, isToolkit = false) => {
+    const content = textToSend || userText;
     if (!content.trim() && !isConfirmBack) return;
 
     let finalContent = content.trim();
+
     if (isConfirmBack) {
       if (!confirmBackText.trim()) return;
-      finalContent = `CONFIRMATION REQUEST:\n"I understood that you mean: ${confirmBackText.trim()}"\n\nIs this correct? (Please tap Yes/No below)`;
-    }
+      finalContent = `Please confirm:\n"I understood that ${confirmBackText.trim()}"\n\nIs this correct?`;
+    } 
 
     const newMessage = {
       id: Date.now(),
@@ -78,25 +89,40 @@ export default function ConversationAssist() {
     };
 
     setMessages(prev => [...prev, newMessage]);
-    setInputText('');
+    setUserText('');
     setConfirmBackText('');
     setShowConfirmBack(false);
     setShowRepairToolkit(false);
+    
+    // If the user asks a new clarifying question, we reset the verification state
+    if (isConfirmBack || isToolkit) {
+      setSessionVerified(false);
+    }
   };
 
-  const handleStaffReply = (replyText) => {
+  // Upgraded handler to track explicit verification
+  const handleStaffMessage = (replyText = null, isExplicitVerification = false) => {
+    const content = replyText || staffText;
+    if (!content.trim()) return;
+
+    if (isExplicitVerification) {
+      setSessionVerified(true);
+    }
+
     const staffMessage = {
       id: Date.now(),
       sender: 'staff',
-      text: replyText,
+      text: content.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setMessages(prev => [...prev, staffMessage]);
+    setStaffText('');
   };
 
   const clearConversation = () => {
     if (confirm("Clear this conversation history?")) {
       setMessages([]);
+      setSessionVerified(false); // Reset verification on clear
     }
   };
 
@@ -136,7 +162,7 @@ export default function ConversationAssist() {
     e.preventDefault();
     if (!summaryAsked.trim() && !summaryReplied.trim()) return;
 
-    // 1. Save to My Requests History
+    // Adding the verifiedByStaff flag to the payload
     const historyItem = {
       id: `REQ-${Date.now()}`,
       domain: 'CUSTOM CONVERSATION',
@@ -145,6 +171,7 @@ export default function ConversationAssist() {
       date: new Date().toLocaleDateString(),
       time: new Date().toLocaleTimeString(),
       status: addToPlanner ? 'Follow-Up Planned' : 'Summarized',
+      verifiedByStaff: sessionVerified,
       entities: { 
         'What I Asked': summaryAsked.trim() || 'N/A', 
         'What They Said': summaryReplied.trim() || 'N/A',
@@ -158,7 +185,6 @@ export default function ConversationAssist() {
       const existingHistory = JSON.parse(localStorage.getItem('signmitra_history') || '[]');
       localStorage.setItem('signmitra_history', JSON.stringify([historyItem, ...existingHistory]));
 
-      // 2. Optionally push straight into Universal Follow-Up Planner
       if (addToPlanner && summaryNextAction.trim()) {
         const followUpItem = {
           id: `FOLLOW-${Date.now()}`,
@@ -172,6 +198,7 @@ export default function ConversationAssist() {
           dueDate: summaryDate || new Date().toISOString().split('T')[0],
           priority: 'Normal',
           status: 'Planned',
+          verifiedByStaff: sessionVerified,
           notes: summaryReplied.trim(),
           checklist: [],
           progressUpdates: []
@@ -202,6 +229,7 @@ export default function ConversationAssist() {
       <style dangerouslySetInnerHTML={{__html: `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        nav { display: none !important; }
       `}} />
 
       {/* Top Header Bar */}
@@ -209,7 +237,7 @@ export default function ConversationAssist() {
         <div className="flex items-center gap-3">
           <Link href="/communication-hub" className="font-bold uppercase tracking-wider hover:opacity-75 transition-opacity inline-flex items-center gap-1.5" onClick={() => { if(window.speechSynthesis) window.speechSynthesis.cancel(); }}>
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Hub</span>
+            <span>Exit Chat</span>
           </Link>
           <span className="opacity-40 hidden sm:inline">/</span>
           <span className="opacity-90 font-bold uppercase tracking-wide hidden sm:inline">CONVERSATION ASSIST</span>
@@ -219,7 +247,7 @@ export default function ConversationAssist() {
             onClick={() => setShowSummaryModal(true)} 
             className={`px-3 py-1.5 rounded text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${accentSolid} hover:opacity-90`}
           >
-            <FileDown className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Summary</span>
+            <FileDown className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Save Summary</span>
           </button>
           {messages.length > 0 && (
             <button onClick={clearConversation} className="hover:opacity-75 transition-opacity text-xs font-mono font-bold flex items-center gap-1 text-red-500">
@@ -245,7 +273,18 @@ export default function ConversationAssist() {
                 <div className="flex justify-between items-start border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
                   <div>
                     <h2 className="text-xl font-black uppercase tracking-tight">Capture Summary</h2>
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70">User-Created Record</span>
+                    {/* Explicit Verification Badge UI */}
+                    <div className="flex items-center mt-1">
+                      {sessionVerified ? (
+                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-green-600 dark:text-green-400 flex items-center gap-1.5">
+                           <CheckCircle2 className="w-3.5 h-3.5" /> Staff Verified
+                         </span>
+                      ) : (
+                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 flex items-center gap-1.5">
+                           <AlertCircle className="w-3.5 h-3.5" /> Unverified / User Entered
+                         </span>
+                      )}
+                    </div>
                   </div>
                   <button type="button" onClick={() => setShowSummaryModal(false)} className={`p-1.5 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80`}>
                     <X className="w-4 h-4" />
@@ -346,44 +385,45 @@ export default function ConversationAssist() {
       )}
 
       {/* Main Chat Stream */}
-      <main className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col pb-6 overflow-y-auto no-scrollbar">
+      <main className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col pb-8 overflow-y-auto no-scrollbar">
         
         <div className="space-y-5 mb-6">
           <div className={`p-4 rounded-xl border ${borderTone} ${cardInnerBg} text-xs font-mono text-center opacity-80`}>
-            💡 Hand the device to staff to type replies, or use the Repair Toolkit if communication breaks down.
+            💡 Use the input boxes at the bottom to have a two-way conversation.
           </div>
 
           {messages.map((msg) => {
             const isUser = msg.sender === 'user';
+            const isIntro = msg.sender === 'intro';
             const isSpeaking = speakingId === msg.id;
 
             return (
-              <div key={msg.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1`}>
+              <div key={msg.id} className={`flex flex-col ${isUser || isIntro ? 'items-end' : 'items-start'} space-y-1`}>
                 <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold opacity-60 px-1">
-                  {isUser ? <User className="w-3 h-3" /> : <Users className="w-3 h-3" />}
-                  <span>{isUser ? 'You (ISL User)' : 'Staff / Official'}</span>
+                  {isUser || isIntro ? <User className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                  <span>{isIntro ? 'Message to Staff' : isUser ? 'You (ISL User)' : 'Staff Reply'}</span>
                   <span>•</span>
                   <span>{msg.time}</span>
                 </div>
 
                 <div className={`p-4 sm:p-5 rounded-2xl max-w-[90%] sm:max-w-xl border shadow-sm ${
-                  isUser 
+                  isUser || isIntro
                     ? `${cardInnerBg}${borderTone} rounded-tr-none` 
                     : `${cardBg}${borderTone} rounded-tl-none`
                 }`}>
-                  <p className={`text-base sm:text-lg font-black leading-snug whitespace-pre-line ${msg.isConfirmBackRequest ? 'italic opacity-90' : ''}`}>
+                  <p className="text-base sm:text-lg font-black leading-snug whitespace-pre-line">
                     {msg.text}
                   </p>
                   
-                  {/* Staff Interactive Buttons for Confirm-Back Requests */}
                   {msg.isConfirmBackRequest && isUser && (
                     <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-black/10 dark:border-white/10">
-                      <span className="w-full text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 mb-1">Staff: Please Select One</span>
-                      <button onClick={() => handleStaffReply("Yes, that is exactly correct.")} className={`px-4 py-2 rounded-lg border text-xs font-bold transition-all ${accentSolid} hover:opacity-90`}>
-                        Yes, Correct
+                      <span className="w-full text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 mb-1">Staff: Please confirm or clarify</span>
+                      {/* Passing true below flags this as a verified staff interaction */}
+                      <button onClick={() => handleStaffMessage("Yes, that is correct.", true)} className={`px-4 py-2 rounded-lg border text-xs font-bold transition-all ${accentSolid} hover:opacity-90`}>
+                        Yes, correct
                       </button>
-                      <button onClick={() => handleStaffReply("No, that is incorrect. Let me re-type it.")} className={`px-4 py-2 rounded-lg border ${borderTone} text-xs font-bold hover:opacity-80`}>
-                        No, Incorrect
+                      <button onClick={() => handleStaffMessage("No, that is incorrect. Please clarify.", false)} className={`px-4 py-2 rounded-lg border ${borderTone} text-xs font-bold hover:opacity-80`}>
+                        No, please clarify
                       </button>
                     </div>
                   )}
@@ -406,43 +446,71 @@ export default function ConversationAssist() {
               </div>
             );
           })}
-          <div ref={chatBottomRef} className="h-2" />
+          {/* Scroll anchor */}
+          <div ref={chatBottomRef} className="h-6" />
         </div>
       </main>
 
       {/* FIXED BOTTOM ACTION AREA */}
-      <div className={`w-full border-t ${borderTone} ${cardBg} p-3 sm:p-4 pb-20 sm:pb-24 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]`}>
-        <div className="max-w-3xl mx-auto space-y-3">
+      <div className={`w-full border-t ${borderTone} ${cardBg} p-3 sm:p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]`}>
+        <div className="max-w-3xl mx-auto space-y-4">
           
-          {/* Repair Toolkit & Confirm Back Toggles */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setShowRepairToolkit(!showRepairToolkit); setShowConfirmBack(false); }}
-              className={`flex-1 py-2 px-3 rounded-lg border text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2
-                ${showRepairToolkit ? accentSolid + ' border-transparent' : `${borderTone}${cardInnerBg} hover:opacity-80`}`}
-            >
-              <Wrench className="w-3.5 h-3.5" /> Repair Toolkit
-            </button>
-            <button
-              onClick={() => { setShowConfirmBack(!showConfirmBack); setShowRepairToolkit(false); }}
-              className={`flex-1 py-2 px-3 rounded-lg border text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2
-                ${showConfirmBack ? accentSolid + ' border-transparent' : `${borderTone}${cardInnerBg} hover:opacity-80`}`}
-            >
-              <CheckSquare className="w-3.5 h-3.5" /> Confirm-Back
-            </button>
+          {/* User Input Section */}
+          <div className="space-y-2">
+             <label className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 block">
+               ISL User — Message to staff
+             </label>
+             <div className="flex gap-2">
+              <input
+                type="text"
+                value={userText}
+                onChange={(e) => setUserText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleUserMessage(); }}
+                placeholder="Type your message..."
+                className={`p-3 flex-1 font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardInnerBg} ${borderTone} focus:border-[#655A7C]`}
+              />
+              <button
+                onClick={() => handleUserMessage()}
+                disabled={!userText.trim()}
+                className={`px-5 py-3 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 ${userText.trim() ? accentSolid + ' hover:opacity-90' : 'opacity-50 cursor-not-allowed border ' + borderTone}`}
+              >
+                <span className="hidden sm:inline">Send to Staff</span>
+                <Send className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+              </button>
+            </div>
+            
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => { setShowRepairToolkit(!showRepairToolkit); setShowConfirmBack(false); }}
+                className={`flex-1 py-1.5 px-3 rounded-lg border text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
+                  ${showRepairToolkit ? accentSolid + ' border-transparent' : `${borderTone}${cardInnerBg} hover:opacity-80`}`}
+              >
+                <Wrench className="w-3.5 h-3.5" /> Toolkit
+              </button>
+              <button
+                onClick={() => { setShowConfirmBack(!showConfirmBack); setShowRepairToolkit(false); }}
+                className={`flex-1 py-1.5 px-3 rounded-lg border text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5
+                  ${showConfirmBack ? accentSolid + ' border-transparent' : `${borderTone}${cardInnerBg} hover:opacity-80`}`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" /> Confirm Understanding
+              </button>
+            </div>
           </div>
 
           {/* Expanded Repair Toolkit */}
           {showRepairToolkit && (
             <div className={`p-3 rounded-xl border ${borderTone} ${cardInnerBg} animate-in slide-in-from-bottom-2 duration-200`}>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 block mb-2 flex items-center gap-1.5">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 block flex items-center gap-1.5">
                 <HelpCircle className="w-3.5 h-3.5" /> Fix Misunderstandings
               </span>
+              <p className={`text-[10px] font-medium leading-snug mb-2 ${textSecondary}`}>
+                Use these if something was unclear or you need the other person to repeat or clarify.
+              </p>
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                 {REPAIR_PHRASES.map((phrase, idx) => (
                   <button
                     key={idx}
-                    onClick={() => handleSendMessage(phrase)}
+                    onClick={() => handleUserMessage(phrase, false, true)} 
                     className={`px-3.5 py-2 rounded-lg border ${borderTone} ${cardBg} text-xs font-bold hover:border-[#655A7C] transition-all shrink-0 active:scale-95`}
                   >
                     {phrase}
@@ -456,56 +524,64 @@ export default function ConversationAssist() {
           {showConfirmBack && (
             <div className={`p-3 rounded-xl border ${borderTone} ${cardInnerBg} animate-in slide-in-from-bottom-2 duration-200 space-y-2`}>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 block flex items-center gap-1.5">
-                <CheckSquare className="w-3.5 h-3.5" /> Verify Understanding
+                <CheckSquare className="w-3.5 h-3.5" /> Confirm Understanding
               </span>
+              <p className={`text-[10px] font-medium leading-snug mb-2 ${textSecondary}`}>
+                Repeat the important details in simple words so both people can check they understood correctly.
+              </p>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={confirmBackText}
                   onChange={(e) => setConfirmBackText(e.target.value)}
-                  placeholder="I understood that you mean..."
+                  placeholder="e.g., the next step is to visit Counter 3"
                   className={`p-2.5 flex-1 font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardBg} ${borderTone} focus:border-[#655A7C]`}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(null, true); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleUserMessage(null, true); }}
                 />
                 <button
-                  onClick={() => handleSendMessage(null, true)}
+                  onClick={() => handleUserMessage(null, true)}
                   disabled={!confirmBackText.trim()}
                   className={`px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 ${confirmBackText.trim() ? accentSolid + ' hover:opacity-90' : 'opacity-50 cursor-not-allowed border ' + borderTone}`}
                 >
-                  Verify <Send className="w-3 h-3" />
+                  Send Confirmation Request <Send className="w-3 h-3" />
                 </button>
               </div>
             </div>
           )}
+          
+          <hr className={`border-t ${borderTone}`} />
 
-          {/* Standard Input & Staff Simulation Toggle */}
+          {/* Staff Input Section */}
           <div className={`p-2 rounded-xl border ${borderTone} ${cardBg} flex flex-col gap-2`}>
+             <label className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-70 block px-1">
+               Staff — Reply to user
+             </label>
             <div className="flex gap-2">
               <input
                 type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
-                placeholder="Type a message or pass to staff to reply..."
+                value={staffText}
+                onChange={(e) => setStaffText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleStaffMessage(); }}
+                placeholder="Type your response..."
                 className={`p-3 flex-1 font-bold border rounded-lg text-xs sm:text-sm outline-none transition-colors ${cardInnerBg} ${borderTone} focus:border-[#655A7C]`}
               />
               <button
-                onClick={() => handleSendMessage()}
-                disabled={!inputText.trim()}
-                className={`px-5 py-3 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 ${inputText.trim() ? accentSolid + ' hover:opacity-90' : 'opacity-50 cursor-not-allowed border ' + borderTone}`}
+                onClick={() => handleStaffMessage()}
+                disabled={!staffText.trim()}
+                className={`px-5 py-3 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5 ${staffText.trim() ? accentSolid + ' hover:opacity-90' : 'opacity-50 cursor-not-allowed border ' + borderTone}`}
               >
-                <span className="hidden sm:inline">Send</span>
+                <span className="hidden sm:inline">Send Reply</span>
                 <Send className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
               </button>
             </div>
             
-            {/* Quick simulated staff replies for testing without passing the device back and forth */}
+            {/* Quick simulated staff replies */}
             <div className="flex justify-between items-center text-[10px] font-mono px-1 opacity-60">
-              <span className="hidden sm:inline">Quick Staff Replies:</span>
+              <span className="hidden sm:inline">Suggested Staff Replies:</span>
               <div className="flex gap-3 overflow-x-auto no-scrollbar w-full sm:w-auto">
-                <button onClick={() => handleStaffReply("Yes, please wait here.")} className="underline hover:opacity-100 shrink-0">"Wait here"</button>
-                <button onClick={() => handleStaffReply("I need your ID proof.")} className="underline hover:opacity-100 shrink-0">"Need ID"</button>
-                <button onClick={() => handleStaffReply("Go to counter number 3.")} className="underline hover:opacity-100 shrink-0">"Counter 3"</button>
+                <button onClick={() => handleStaffMessage("Yes, please wait here.")} className="underline hover:opacity-100 shrink-0">"Wait here"</button>
+                <button onClick={() => handleStaffMessage("I need your ID proof.")} className="underline hover:opacity-100 shrink-0">"Need ID"</button>
+                <button onClick={() => handleStaffMessage("Go to counter number 3.")} className="underline hover:opacity-100 shrink-0">"Counter 3"</button>
               </div>
             </div>
           </div>

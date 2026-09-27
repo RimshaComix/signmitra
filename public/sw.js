@@ -1,4 +1,4 @@
-const CACHE_NAME = 'signmitra-core-v1';
+const CACHE_NAME = 'signmitra-core-v2';
 
 // Assets to cache immediately for complete offline usability
 const ASSETS_TO_CACHE = [
@@ -6,11 +6,11 @@ const ASSETS_TO_CACHE = [
   '/globals.css',
   '/manifest.json',
   '/favicon.ico',
-  '/healthcare',
-  '/banking',
-  '/education',
-  '/emergency',
-  '/communication'
+  '/communication-hub',
+  '/steps',
+  '/conversation',
+  '/followups',
+  '/history'
 ];
 
 // Install Event - Pre-caches all the structural templates and UI pages
@@ -41,7 +41,9 @@ self.addEventListener('activate', (event) => {
 
 // Fetch Event - Dynamic Cache-First Strategy for Offline-First operation
 self.addEventListener('fetch', (event) => {
-  // Only handle standard local requests (ignore external API queries/extensions)
+  // Only handle standard GET requests (ignore POST/API queries)
+  if (event.request.method !== 'GET') return;
+  
   if (event.request.mode === 'navigate' || event.request.url.startsWith(self.location.origin)) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
@@ -63,7 +65,6 @@ self.addEventListener('fetch', (event) => {
 
           return networkResponse;
         }).catch(() => {
-          // Offline fallback logic if network fails and page isn't cached
           console.log('[SignMitra SW] Network failed and asset not in cache.');
         });
       })

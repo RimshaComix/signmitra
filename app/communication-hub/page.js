@@ -117,21 +117,24 @@ export default function CommunicationHub() {
     <div className={`min-h-screen transition-colors duration-200 font-sans antialiased selection:bg-[#655A7C] selection:text-[#FDF1E2] flex flex-col justify-between ${bgCanvas} ${textPrimary}`}>
       
       {/* Top Runtime Status Bar */}
-      <div className={`w-full border-b py-2 px-4 sm:px-6 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg}`}>
+      <div className={`w-full border-b py-2 px-4 sm:px-6 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg}`} role="region" aria-label="Status Bar">
         <div className="flex items-center gap-2">
-          <Link href="/" className="font-bold uppercase tracking-wider hover:opacity-75 transition-opacity">
+          <Link 
+            href="/" 
+            className="font-bold uppercase tracking-wider hover:opacity-75 transition-opacity focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded px-1"
+          >
             ← Return to Overview
           </Link>
-          <span className="opacity-40">•</span>
+          <span className="opacity-40" aria-hidden="true">•</span>
           <span className="opacity-80">COMMUNICATION WORKFLOW HUB</span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={toggleTheme}
             aria-label="Toggle Theme Mode"
-            className={`p-1.5 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all`}
+            className={`p-1.5 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
           >
-            {isDarkTheme ? <Sun className="w-3.5 h-3.5 text-[#FDF1E2]" /> : <Moon className="w-3.5 h-3.5 text-[#655A7C]" />}
+            {isDarkTheme ? <Sun className="w-3.5 h-3.5 text-[#FDF1E2]" aria-hidden="true" /> : <Moon className="w-3.5 h-3.5 text-[#655A7C]" aria-hidden="true" />}
           </button>
         </div>
       </div>
@@ -142,7 +145,7 @@ export default function CommunicationHub() {
         <header className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b pb-8 mb-10 ${borderTone}`}>
           <div>
             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border ${borderTone} ${cardBg} text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider mb-4`}>
-              <Sparkles className="w-3.5 h-3.5" />
+              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
               ORCHESTRATION HUB
             </div>
             <h1 className="text-3xl sm:text-5xl font-black tracking-tight uppercase leading-[1.08]">
@@ -155,9 +158,10 @@ export default function CommunicationHub() {
           
           <Link 
             href="/emergency"
-            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0`}
+            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+            aria-label="Open Emergency Mode"
           >
-            <ShieldAlert className="w-4 h-4 shrink-0 text-[#655A7C] dark:text-[#FDF1E2]" />
+            <ShieldAlert className="w-4 h-4 shrink-0 text-[#655A7C] dark:text-[#FDF1E2]" aria-hidden="true" />
             <span>Open Emergency</span>
           </Link>
         </header>
@@ -165,10 +169,10 @@ export default function CommunicationHub() {
         {/* ========================================== */}
         {/* UNIFIED INTERACTION JOURNEYS (NEW) */}
         {/* ========================================== */}
-        <section className="mb-14 animate-in fade-in duration-300">
+        <section className="mb-14 animate-in fade-in duration-300" aria-labelledby="interaction-journeys-heading">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-sm font-mono font-bold uppercase tracking-wider flex items-center gap-2">
-              <Play className="w-4 h-4" />
+            <h2 id="interaction-journeys-heading" className="text-sm font-mono font-bold uppercase tracking-wider flex items-center gap-2">
+              <Play className="w-4 h-4" aria-hidden="true" />
               <span>Start an Interaction Journey</span>
             </h2>
           </div>
@@ -177,6 +181,7 @@ export default function CommunicationHub() {
             {JOURNEYS.map((journey) => {
               const IconComponent = journey.icon;
               const isActive = activeJourney === journey.id;
+              const panelId = `journey-panel-${journey.id}`;
 
               return (
                 <div key={journey.id} className={`rounded-2xl border transition-all ${borderTone} ${isActive ? cardBg + ' shadow-md' : cardInnerBg + ' hover:opacity-90'}`}>
@@ -184,10 +189,12 @@ export default function CommunicationHub() {
                   {/* Journey Header (Click to expand) */}
                   <button 
                     onClick={() => toggleJourney(journey.id)}
-                    className="w-full p-5 sm:p-6 flex items-center justify-between text-left"
+                    className="w-full p-5 sm:p-6 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded-2xl"
+                    aria-expanded={isActive}
+                    aria-controls={panelId}
                   >
                     <div className="flex items-center gap-4 sm:gap-5">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold shrink-0 ${isActive ? accentSolid : `border ${borderTone}${cardBg}`}`}>
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold shrink-0 ${isActive ? accentSolid : `border ${borderTone}${cardBg}`}`} aria-hidden="true">
                         <IconComponent className="w-6 h-6" />
                       </div>
                       <div>
@@ -197,35 +204,36 @@ export default function CommunicationHub() {
                         </p>
                       </div>
                     </div>
-                    <div className="shrink-0 pl-2">
+                    <div className="shrink-0 pl-2" aria-hidden="true">
                       {isActive ? <ChevronUp className="w-5 h-5 opacity-70" /> : <ChevronDown className="w-5 h-5 opacity-70" />}
                     </div>
                   </button>
 
                   {/* Expanded Journey Timeline */}
                   {isActive && (
-                    <div className={`px-5 sm:px-6 pb-6 pt-2 border-t ${borderTone} animate-in slide-in-from-top-2 duration-200`}>
+                    <div id={panelId} className={`px-5 sm:px-6 pb-6 pt-2 border-t ${borderTone} animate-in slide-in-from-top-2 duration-200`}>
                       <div className="mt-6 space-y-6 relative before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-current before:to-transparent before:opacity-10">
                         {journey.phases.map((phase, idx) => {
                           const PhaseIcon = phase.icon;
                           return (
                             <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                              <div className={`flex items-center justify-center w-8 h-8 rounded-full border-4 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${cardInnerBg} ${borderTone} ${textPrimary}`}>
+                              <div className={`flex items-center justify-center w-8 h-8 rounded-full border-4 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${cardInnerBg} ${borderTone} ${textPrimary}`} aria-hidden="true">
                                 <span className="text-[10px] font-black">{idx + 1}</span>
                               </div>
                               <div className={`w-[calc(100%-3rem)] md:w-[calc(50%-1.5rem)] p-4 rounded-xl border ${borderTone} ${cardBg} shadow-sm transition-all hover:scale-[1.02]`}>
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
-                                    <PhaseIcon className="w-4 h-4 opacity-70" />
+                                    <PhaseIcon className="w-4 h-4 opacity-70" aria-hidden="true" />
                                     <h4 className="font-bold text-xs uppercase tracking-wider">{phase.name}</h4>
                                   </div>
                                 </div>
                                 <p className={`text-xs font-medium mb-3 ${textSecondary}`}>{phase.desc}</p>
                                 <Link 
                                   href={phase.href}
-                                  className={`inline-flex w-full py-2.5 items-center justify-center gap-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${accentSolid} hover:opacity-90`}
+                                  className={`inline-flex w-full py-2.5 items-center justify-center gap-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${accentSolid} hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                                  aria-label={`Open ${phase.name} phase for ${journey.title}`}
                                 >
-                                  Open {phase.name} <ArrowRight className="w-3.5 h-3.5" />
+                                  Open {phase.name} <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
                                 </Link>
                               </div>
                             </div>
@@ -243,10 +251,10 @@ export default function CommunicationHub() {
         {/* ========================================== */}
         {/* DIRECT DOMAIN GENERATORS (LEGACY/QUICK) */}
         {/* ========================================== */}
-        <section className="space-y-5">
+        <section className="space-y-5" aria-labelledby="quick-generators-heading">
           <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
-            <h2 className="text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 opacity-80">
-              <Layers className="w-4 h-4" />
+            <h2 id="quick-generators-heading" className="text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 opacity-80">
+              <Layers className="w-4 h-4" aria-hidden="true" />
               <span>Or Generate a Quick Structured Card</span>
             </h2>
           </div>
@@ -258,10 +266,11 @@ export default function CommunicationHub() {
                 <Link 
                   key={domain.id}
                   href={domain.href}
-                  className={`p-5 rounded-xl border transition-all flex flex-col justify-between ${cardInnerBg} ${borderTone} hover:border-[#655A7C] hover:-translate-y-1`}
+                  className={`p-5 rounded-xl border transition-all flex flex-col justify-between ${cardInnerBg} ${borderTone} hover:border-[#655A7C] hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                  aria-label={`Generate quick card for ${domain.title}`}
                 >
                   <div>
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold mb-4 ${accentSolid}`}>
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold mb-4 ${accentSolid}`} aria-hidden="true">
                       <IconComponent className="w-5 h-5" />
                     </div>
                     <h3 className="text-sm font-black uppercase tracking-tight mb-1">
@@ -280,11 +289,11 @@ export default function CommunicationHub() {
       </main>
 
       {/* Footer / System Status Indicators */}
-      <footer className={`border-t py-6 px-4 sm:px-6 lg:px-8 ${borderTone} ${cardInnerBg}`}>
+      <footer className={`border-t py-6 px-4 sm:px-6 lg:px-8 ${borderTone} ${cardInnerBg}`} role="contentinfo">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center text-xs font-mono gap-3">
           <p className="font-bold">SignMitra • Privacy-Focused Accessibility Platform</p>
-          <div className="flex items-center gap-2 font-medium">
-            <span className={`w-2 h-2 rounded-full animate-pulse ${isDarkTheme ? 'bg-[#FDF1E2]' : 'bg-[#655A7C]'}`}></span>
+          <div className="flex items-center gap-2 font-medium" role="status" aria-live="polite">
+            <span className={`w-2 h-2 rounded-full animate-pulse ${isDarkTheme ? 'bg-[#FDF1E2]' : 'bg-[#655A7C]'}`} aria-hidden="true"></span>
             <span>Local State Engine Operational</span>
           </div>
         </div>

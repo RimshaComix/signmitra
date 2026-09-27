@@ -318,13 +318,17 @@ export default function VisualStepByStep() {
       `}} />
 
       {/* Top Header */}
-      <div className={`w-full border-b py-3 px-4 sm:px-8 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg} z-10 sticky top-0`}>
+      <div className={`w-full border-b py-3 px-4 sm:px-8 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg} z-10 sticky top-0`} role="region" aria-label="Navigation Header">
         <div className="flex items-center gap-3">
-          <Link href="/communication-hub" className="font-bold uppercase tracking-wider hover:opacity-75 transition-opacity inline-flex items-center gap-1.5">
-            <ArrowLeft className="w-3.5 h-3.5" />
+          <Link 
+            href="/communication-hub" 
+            className="font-bold uppercase tracking-wider hover:opacity-75 transition-opacity inline-flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded px-1"
+            aria-label="Return to Communication Hub"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Hub</span>
           </Link>
-          <span className="opacity-40">/</span>
+          <span className="opacity-40" aria-hidden="true">/</span>
           <span className="opacity-90 font-bold uppercase tracking-wide">VISUAL GUIDES</span>
         </div>
       </div>
@@ -337,7 +341,7 @@ export default function VisualStepByStep() {
             <header className={`rounded-xl border ${borderTone} p-5 sm:p-6 mb-5 shadow-sm flex flex-col sm:flex-row justify-between items-start gap-4 ${cardBg}`}>
               <div>
                 <div className={`inline-flex items-center gap-2 px-2 py-0.5 rounded border ${borderTone} ${cardInnerBg} text-[10px] font-mono font-bold uppercase tracking-wider mb-2`}>
-                  <ListOrdered className="w-3.5 h-3.5" />
+                  <ListOrdered className="w-3.5 h-3.5" aria-hidden="true" />
                   STEP-BY-STEP
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">Visual Process Guides</h1>
@@ -347,25 +351,26 @@ export default function VisualStepByStep() {
               </div>
             </header>
 
-            <div className={`p-4 rounded-xl border ${borderTone} ${cardInnerBg} flex items-start gap-3 text-xs font-mono font-bold mb-5 opacity-90 leading-relaxed`}>
-              <ShieldAlert className="w-5 h-5 text-[#655A7C] shrink-0 mt-0.5" />
+            <div className={`p-4 rounded-xl border ${borderTone} ${cardInnerBg} flex items-start gap-3 text-xs font-mono font-bold mb-5 opacity-90 leading-relaxed`} role="region" aria-label="Disclaimer">
+              <ShieldAlert className="w-5 h-5 text-[#655A7C] shrink-0 mt-0.5" aria-hidden="true" />
               <span>These are general communication guides, not official procedures. Confirm current requirements with staff.</span>
             </div>
 
             {/* Category Filter Bar */}
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 mb-2">
-              <div className="flex items-center pr-2 opacity-50 shrink-0">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 mb-2" role="region" aria-label="Guide Categories">
+              <div className="flex items-center pr-2 opacity-50 shrink-0" aria-hidden="true">
                 <Filter className="w-4 h-4" />
               </div>
               {CATEGORIES.map(category => (
                 <button
                   key={category}
                   onClick={() => setActiveCategory(category)}
-                  className={`px-4 py-2 rounded-lg border text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                  className={`px-4 py-2 rounded-lg border text-xs font-bold whitespace-nowrap transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none ${
                     activeCategory === category 
                       ? accentSolid + ' border-transparent' 
                       : `${borderTone}${cardBg} hover:opacity-80`
                   }`}
+                  aria-pressed={activeCategory === category}
                 >
                   {category}
                 </button>
@@ -377,23 +382,24 @@ export default function VisualStepByStep() {
                 <button
                   key={key}
                   onClick={() => handleStartGuide(key)}
-                  className={`w-full text-left p-4 rounded-xl border ${borderTone} ${cardBg} hover:border-[#655A7C] transition-all group flex items-center gap-4`}
+                  className={`w-full text-left p-4 rounded-xl border ${borderTone} ${cardBg} hover:border-[#655A7C] transition-all group flex items-center gap-4 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                  aria-label={`Open guide for ${guide.title}`}
                 >
-                  <div className={`w-10 h-10 rounded-lg border ${borderTone} ${cardInnerBg} flex items-center justify-center text-xl shrink-0`}>
+                  <div className={`w-10 h-10 rounded-lg border ${borderTone} ${cardInnerBg} flex items-center justify-center text-xl shrink-0`} aria-hidden="true">
                     {guide.icon}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-black uppercase tracking-tight text-sm sm:text-base truncate">{guide.title}</h3>
                     <p className={`text-[11px] sm:text-xs font-medium mt-0.5 ${textSecondary} line-clamp-1`}>{guide.description}</p>
                   </div>
-                  <div className="flex flex-col items-center justify-center shrink-0 opacity-50 group-hover:opacity-100 transition-opacity">
+                  <div className="flex flex-col items-center justify-center shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" aria-hidden="true">
                     <ChevronRight className="w-5 h-5" />
                   </div>
                 </button>
               ))}
               
               {filteredGuides.length === 0 && (
-                <div className={`p-8 text-center border border-dashed ${borderTone} rounded-xl opacity-70`}>
+                <div className={`p-8 text-center border border-dashed ${borderTone} rounded-xl opacity-70`} role="alert">
                   <p className="font-mono text-xs uppercase tracking-wider">No guides found in this category.</p>
                 </div>
               )}
@@ -406,16 +412,20 @@ export default function VisualStepByStep() {
             <div className="flex justify-between items-center mb-5">
               <button 
                 onClick={() => setActiveGuideKey(null)}
-                className="text-[11px] sm:text-xs font-mono font-bold uppercase tracking-wider opacity-70 hover:opacity-100 transition-all flex items-center gap-1"
+                className="text-[11px] sm:text-xs font-mono font-bold uppercase tracking-wider opacity-70 hover:opacity-100 transition-all flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded px-1"
+                aria-label="Exit current guide"
               >
                 ← Exit Guide
               </button>
-              <div className={`px-3 py-1 rounded border ${borderTone} ${cardInnerBg} text-[10px] font-mono font-bold uppercase tracking-widest`}>
+              <div className={`px-3 py-1 rounded border ${borderTone} ${cardInnerBg} text-[10px] font-mono font-bold uppercase tracking-widest`} aria-live="polite">
                 Step {currentStepIndex + 1} of {GUIDES[activeGuideKey].steps.length}
               </div>
             </div>
 
-            <div className={`flex-1 rounded-xl border ${borderTone} ${cardBg} shadow-sm overflow-hidden flex flex-col`}>
+            <div 
+              className={`flex-1 rounded-xl border ${borderTone} ${cardBg} shadow-sm overflow-hidden flex flex-col`}
+              aria-live="polite"
+            >
               {/* Main Instruction */}
               <div className="p-6 sm:p-8 flex-1 flex flex-col justify-center border-b" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>
                 <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 mb-2 block">Action Required:</span>
@@ -427,7 +437,7 @@ export default function VisualStepByStep() {
               {/* Sub-instructions */}
               <div className={`p-5 sm:p-6 bg-black/5 dark:bg-white/5 space-y-5`}>
                 <div className="flex gap-3.5 items-start">
-                  <div className={`p-2 rounded-lg ${accentSolid} shrink-0`}>
+                  <div className={`p-2 rounded-lg ${accentSolid} shrink-0`} aria-hidden="true">
                     <FileText className="w-4 h-4" />
                   </div>
                   <div>
@@ -437,7 +447,7 @@ export default function VisualStepByStep() {
                 </div>
 
                 <div className="flex gap-3.5 items-start">
-                  <div className={`p-2 rounded-lg border ${borderTone} ${cardInnerBg} shrink-0`}>
+                  <div className={`p-2 rounded-lg border ${borderTone} ${cardInnerBg} shrink-0`} aria-hidden="true">
                     <Eye className="w-4 h-4 opacity-80" />
                   </div>
                   <div>
@@ -453,27 +463,29 @@ export default function VisualStepByStep() {
               {currentStepIndex > 0 && (
                 <button
                   onClick={() => setCurrentStepIndex(prev => prev - 1)}
-                  className={`py-3.5 px-4 rounded-xl border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all font-mono font-bold text-xs uppercase tracking-wider shrink-0`}
+                  className={`py-3.5 px-4 rounded-xl border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all font-mono font-bold text-xs uppercase tracking-wider shrink-0 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                  aria-label="Go to previous step"
                 >
                   Previous
                 </button>
               )}
               <button
                 onClick={handleNextStep}
-                className={`flex-1 py-3.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-widest shadow-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 ${accentSolid}`}
+                className={`flex-1 py-3.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-widest shadow-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 ${accentSolid} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                aria-label={currentStepIndex === GUIDES[activeGuideKey].steps.length - 1 ? "Mark guide as complete" : "Proceed to next step"}
               >
                 {currentStepIndex === GUIDES[activeGuideKey].steps.length - 1 ? (
-                  <>Mark Complete <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" /></>
+                  <>Mark Complete <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" /></>
                 ) : (
-                  <>Next Step <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" /></>
+                  <>Next Step <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" /></>
                 )}
               </button>
             </div>
           </div>
         ) : (
           // COMPLETION VIEW
-          <div className="flex-1 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300 py-10">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl mx-auto shadow-sm mb-5 ${accentSolid}`}>
+          <div className="flex-1 flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300 py-10" role="alert" aria-live="assertive">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl mx-auto shadow-sm mb-5 ${accentSolid}`} aria-hidden="true">
               <CheckCircle2 className="w-8 h-8" />
             </div>
             <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight mb-2">Guide Completed</h2>
@@ -483,19 +495,22 @@ export default function VisualStepByStep() {
             <div className="flex flex-col w-full max-w-xs gap-2.5">
               <Link
                 href="/followups"
-                className={`w-full py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-sm transition-all hover:opacity-90 ${accentSolid}`}
+                className={`w-full py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-sm transition-all hover:opacity-90 ${accentSolid} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                aria-label="Create a follow-up task in planner"
               >
                 Create Follow-Up
               </Link>
               <button
                 onClick={() => { setCurrentStepIndex(0); setIsCompleted(false); }}
-                className={`w-full py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-widest hover:opacity-80 transition-all flex items-center justify-center gap-2`}
+                className={`w-full py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-widest hover:opacity-80 transition-all flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                aria-label="Review steps from beginning"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Review Steps
+                <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" /> Review Steps
               </button>
               <button
                 onClick={() => setActiveGuideKey(null)}
-                className={`w-full py-3.5 rounded-xl border border-dashed ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-widest hover:opacity-80 transition-all`}
+                className={`w-full py-3.5 rounded-xl border border-dashed ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-widest hover:opacity-80 transition-all focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                aria-label="Return to list of guides"
               >
                 Return to Guides
               </button>

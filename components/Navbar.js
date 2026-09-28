@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, History, Compass, Library, MessageSquare, CalendarClock, Sparkles, Settings, ListOrdered } from 'lucide-react';
@@ -9,6 +9,18 @@ import { useTheme } from '@/context/ThemeContext';
 export default function Navbar() {
   const pathname = usePathname();
   const { bgCanvas, borderTone, accentSolid, textPrimary } = useTheme();
+  
+  // Hydration fix: Prevent rendering dynamic classes until the client mounts
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Return a placeholder of the exact same height during SSR to prevent layout shift
+  if (!mounted) {
+    return <nav className="fixed bottom-0 left-0 w-full h-16 border-t z-50 bg-[#FDF1E2] dark:bg-[#0a0a0a]" />;
+  }
 
   // Hide navbar inside active communication sessions
   if (pathname === '/communication') return null;
@@ -31,7 +43,7 @@ export default function Navbar() {
         .nav-scroll::-webkit-scrollbar { display: none; }
         .nav-scroll { -ms-overflow-style: none; scrollbar-width: none; }
       `}} />
-      {/* ONLY CHANGED: max-w-md -> max-w-xl */}
+      
       <div className="max-w-xl mx-auto px-2 sm:px-4 h-16 flex items-center justify-start sm:justify-center overflow-x-auto nav-scroll gap-1 sm:gap-0">
         {navItems.map((item) => {
           const Icon = item.icon;

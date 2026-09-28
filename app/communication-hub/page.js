@@ -21,7 +21,11 @@ import {
   Play,
   IdCard,
   Users,
-  MessageSquareWarning
+  MessageSquareWarning,
+  BellRing,
+  Building,
+  Bus,
+  BookOpen
 } from 'lucide-react';
 
 /* 
@@ -82,6 +86,7 @@ export default function CommunicationHub() {
 
   const [activeJourney, setActiveJourney] = useState(null);
 
+  // ALL 9 DOMAINS INCLUDED
   const domains = [
     {
       id: 'interpreter',
@@ -91,6 +96,42 @@ export default function CommunicationHub() {
       desc: 'Formally request an ISL interpreter from facility staff.',
       href: '/interpreter-handoff',
       status: 'Ready to dispatch'
+    },
+    {
+      id: 'staff_handoff',
+      title: 'Staff Quick Reply',
+      icon: MessageSquare,
+      badge: 'HAND DEVICE OVER',
+      desc: 'Let staff tap a quick response on a large screen.',
+      href: '/staff-response',
+      status: 'Ready'
+    },
+    {
+      id: 'transport',
+      title: 'Public Transport',
+      icon: Bus,
+      badge: 'TRANSIT GUIDES',
+      desc: 'Visual tips and communication cards for metro and buses.',
+      href: '/transport',
+      status: 'Local Guides Active'
+    },
+    {
+      id: 'directory',
+      title: 'Access Directory',
+      icon: Building,
+      badge: 'VERIFIED LOCATIONS',
+      desc: 'Check if a hospital or bank has an interpreter or visual signs.',
+      href: '/directory',
+      status: 'Database Active'
+    },
+    {
+      id: 'library',
+      title: 'Info Library',
+      icon: BookOpen,
+      badge: 'ISLRTC & GUIDES',
+      desc: 'Official ISL dictionaries and visual service guides.',
+      href: '/library',
+      status: 'Verified Resources'
     },
     {
       id: 'healthcare',
@@ -118,6 +159,15 @@ export default function CommunicationHub() {
       desc: 'Generate formal requests for campus staff.',
       href: '/education',
       status: 'Academic Interaction Ready'
+    },
+    {
+      id: 'accessibility_feedback',
+      title: 'Rate Accessibility',
+      icon: Layers,
+      badge: 'COMMUNITY FEEDBACK',
+      desc: 'Anonymously report if staff or signs were accessible.',
+      href: '/feedback',
+      status: 'Anonymous & Secure'
     }
   ];
 
@@ -153,9 +203,9 @@ export default function CommunicationHub() {
 
       <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 my-auto pb-28">
         
-        {/* Header Section */}
-        <header className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b pb-8 mb-10 ${borderTone}`}>
-          <div className="flex-1">
+        {/* Header Section (FIXED LAYOUT) */}
+        <header className={`flex flex-col lg:flex-row justify-between items-start gap-8 border-b pb-8 mb-10 ${borderTone}`}>
+          <div className="flex-1 lg:pr-4">
             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-md border ${borderTone} ${cardBg} text-[10px] sm:text-xs font-mono font-bold uppercase tracking-wider mb-4`}>
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
               ORCHESTRATION HUB
@@ -168,35 +218,46 @@ export default function CommunicationHub() {
             </p>
           </div>
           
-          <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3 shrink-0">
+          {/* Action Buttons */}
+          <div className="grid grid-cols-2 gap-3 w-full lg:w-auto shrink-0">
             {/* Personal Communication Card Shortcut */}
             <Link 
               href="/communication-card"
-              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all ${accentSolid} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+              className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all ${accentSolid} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
               aria-label="Open Personal Communication ID Card"
             >
               <IdCard className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>Show ID Card</span>
+              <span className="truncate">ID Card</span>
+            </Link>
+
+            {/* Queue & Appointment Companion Shortcut */}
+            <Link 
+              href="/queue-companion"
+              className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+              aria-label="Open Queue & Appointment Companion"
+            >
+              <BellRing className="w-4 h-4 shrink-0 text-[#655A7C] dark:text-[#FDF1E2]" aria-hidden="true" />
+              <span className="truncate">Queue Tracker</span>
             </Link>
             
-            {/* NEW: Emergency Card Shortcut */}
+            {/* Emergency Card Shortcut */}
             <Link 
               href="/emergency-card"
-              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500 focus-visible:outline-none`}
+              className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500 focus-visible:outline-none`}
               aria-label="Open Emergency Phrases"
             >
               <MessageSquareWarning className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>SOS Phrases</span>
+              <span className="truncate">SOS Phrases</span>
             </Link>
 
             {/* Existing Medical Vault Shortcut */}
             <Link 
               href="/emergency"
-              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+              className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl border ${borderTone} ${cardBg} font-bold text-xs uppercase tracking-wider shadow-sm hover:opacity-90 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
               aria-label="Open Medical Vault"
             >
               <ShieldAlert className="w-4 h-4 shrink-0 text-[#655A7C] dark:text-[#FDF1E2]" aria-hidden="true" />
-              <span>Open Vault</span>
+              <span className="truncate">Open Vault</span>
             </Link>
           </div>
         </header>
@@ -294,7 +355,7 @@ export default function CommunicationHub() {
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {domains.map((domain) => {
               const IconComponent = domain.icon;
               return (

@@ -13,11 +13,7 @@ import {
   Moon,
   Layers,
   Sparkles,
-  ListOrdered,
   MessageSquare,
-  CalendarClock,
-  ChevronDown,
-  ChevronUp,
   Play,
   IdCard,
   Users,
@@ -35,39 +31,28 @@ import {
   3. Dolphin:  #655A7C (Primary brand / high-contrast text / accents / active states)
 */
 
+// UPDATED TO DIRECT LINKS FOR UNIFIED JOURNEY BUILDER
 const JOURNEYS = [
   {
     id: 'college_visit',
     title: 'College Office Visit',
     icon: GraduationCap,
     desc: 'Submit forms, request certificates, or resolve academic issues.',
-    phases: [
-      { name: 'Prepare', desc: 'Review the visual steps before approaching the desk.', href: '/steps', icon: ListOrdered },
-      { name: 'Communicate', desc: 'Use live assist to talk to the clerk or faculty.', href: '/conversation', icon: MessageSquare },
-      { name: 'Confirm & Plan', desc: 'Save the confirmed deadline or action to your planner.', href: '/followups', icon: CalendarClock }
-    ]
+    href: '/journey/college_visit' 
   },
   {
     id: 'bank_visit',
     title: 'Bank Branch Visit',
     icon: Landmark,
     desc: 'Update KYC, deposit cash, or report transaction problems.',
-    phases: [
-      { name: 'Prepare', desc: 'Check required documents and procedures.', href: '/steps', icon: ListOrdered },
-      { name: 'Communicate', desc: 'Hand device to the teller for two-way chat.', href: '/conversation', icon: MessageSquare },
-      { name: 'Confirm & Plan', desc: 'Record reference numbers and follow-up dates.', href: '/followups', icon: CalendarClock }
-    ]
+    href: '/journey/bank_visit' 
   },
   {
     id: 'hospital_visit',
     title: 'Hospital OPD Visit',
     icon: HeartPulse,
     desc: 'Register for consultation, tests, or pharmacy pickup.',
-    phases: [
-      { name: 'Prepare', desc: 'Understand the registration and check-in flow.', href: '/steps', icon: ListOrdered },
-      { name: 'Communicate', desc: 'Clarify instructions with reception or pharmacy.', href: '/conversation', icon: MessageSquare },
-      { name: 'Confirm & Plan', desc: 'Save medicine dosages and next appointments.', href: '/followups', icon: CalendarClock }
-    ]
+    href: '/journey/hospital_visit'
   }
 ];
 
@@ -83,8 +68,6 @@ export default function CommunicationHub() {
     borderTone,
     accentSolid
   } = useTheme();
-
-  const [activeJourney, setActiveJourney] = useState(null);
 
   // ALL 9 DOMAINS INCLUDED
   const domains = [
@@ -170,10 +153,6 @@ export default function CommunicationHub() {
       status: 'Anonymous & Secure'
     }
   ];
-
-  const toggleJourney = (id) => {
-    setActiveJourney(activeJourney === id ? null : id);
-  };
 
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans antialiased selection:bg-[#655A7C] selection:text-[#FDF1E2] flex flex-col justify-between ${bgCanvas} ${textPrimary}`}>
@@ -263,7 +242,7 @@ export default function CommunicationHub() {
         </header>
 
         {/* ========================================== */}
-        {/* UNIFIED INTERACTION JOURNEYS (NEW) */}
+        {/* UNIFIED INTERACTION JOURNEYS */}
         {/* ========================================== */}
         <section className="mb-14 animate-in fade-in duration-300" aria-labelledby="interaction-journeys-heading">
           <div className="flex items-center justify-between mb-5">
@@ -276,76 +255,35 @@ export default function CommunicationHub() {
           <div className="space-y-4">
             {JOURNEYS.map((journey) => {
               const IconComponent = journey.icon;
-              const isActive = activeJourney === journey.id;
-              const panelId = `journey-panel-${journey.id}`;
 
               return (
-                <div key={journey.id} className={`rounded-2xl border transition-all ${borderTone} ${isActive ? cardBg + ' shadow-md' : cardInnerBg + ' hover:opacity-90'}`}>
-                  
-                  {/* Journey Header (Click to expand) */}
-                  <button 
-                    onClick={() => toggleJourney(journey.id)}
-                    className="w-full p-5 sm:p-6 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded-2xl"
-                    aria-expanded={isActive}
-                    aria-controls={panelId}
-                  >
-                    <div className="flex items-center gap-4 sm:gap-5">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold shrink-0 ${isActive ? accentSolid : `border ${borderTone}${cardBg}`}`} aria-hidden="true">
-                        <IconComponent className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight">{journey.title}</h3>
-                        <p className={`text-xs sm:text-sm font-medium mt-1 ${textSecondary}`}>
-                          {journey.desc}
-                        </p>
-                      </div>
+                <Link 
+                  key={journey.id} 
+                  href={journey.href}
+                  className={`w-full p-5 sm:p-6 flex items-center justify-between text-left focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded-2xl border transition-all ${borderTone} ${cardBg} hover:-translate-y-1 hover:border-[#655A7C] shadow-sm group`}
+                >
+                  <div className="flex items-center gap-4 sm:gap-5">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold shrink-0 ${cardInnerBg} border ${borderTone}`} aria-hidden="true">
+                      <IconComponent className="w-6 h-6 opacity-80" />
                     </div>
-                    <div className="shrink-0 pl-2" aria-hidden="true">
-                      {isActive ? <ChevronUp className="w-5 h-5 opacity-70" /> : <ChevronDown className="w-5 h-5 opacity-70" />}
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight">{journey.title}</h3>
+                      <p className={`text-xs sm:text-sm font-medium mt-1 ${textSecondary}`}>
+                        {journey.desc}
+                      </p>
                     </div>
-                  </button>
-
-                  {/* Expanded Journey Timeline */}
-                  {isActive && (
-                    <div id={panelId} className={`px-5 sm:px-6 pb-6 pt-2 border-t ${borderTone} animate-in slide-in-from-top-2 duration-200`}>
-                      <div className="mt-6 space-y-6 relative before:absolute before:inset-0 before:ml-[1.4rem] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-current before:to-transparent before:opacity-10">
-                        {journey.phases.map((phase, idx) => {
-                          const PhaseIcon = phase.icon;
-                          return (
-                            <div key={idx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                              <div className={`flex items-center justify-center w-8 h-8 rounded-full border-4 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 ${cardInnerBg} ${borderTone} ${textPrimary}`} aria-hidden="true">
-                                <span className="text-[10px] font-black">{idx + 1}</span>
-                              </div>
-                              <div className={`w-[calc(100%-3rem)] md:w-[calc(50%-1.5rem)] p-4 rounded-xl border ${borderTone} ${cardBg} shadow-sm transition-all hover:scale-[1.02]`}>
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <PhaseIcon className="w-4 h-4 opacity-70" aria-hidden="true" />
-                                    <h4 className="font-bold text-xs uppercase tracking-wider">{phase.name}</h4>
-                                  </div>
-                                </div>
-                                <p className={`text-xs font-medium mb-3 ${textSecondary}`}>{phase.desc}</p>
-                                <Link 
-                                  href={phase.href}
-                                  className={`inline-flex w-full py-2.5 items-center justify-center gap-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${accentSolid} hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
-                                  aria-label={`Open ${phase.name} phase for ${journey.title}`}
-                                >
-                                  Open {phase.name} <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-                                </Link>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                  <div className="shrink-0 pl-2">
+                    <ArrowRight className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                  </div>
+                </Link>
               );
             })}
           </div>
         </section>
 
         {/* ========================================== */}
-        {/* DIRECT DOMAIN GENERATORS (LEGACY/QUICK) */}
+        {/* DIRECT DOMAIN GENERATORS (QUICK ACTIONS) */}
         {/* ========================================== */}
         <section className="space-y-5" aria-labelledby="quick-generators-heading">
           <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>

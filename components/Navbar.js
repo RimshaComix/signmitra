@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, History, Compass, Library, MessageSquare, CalendarClock, Sparkles, Settings, ListOrdered } from 'lucide-react';
+import { Home, History, Compass, Library, MessageSquare, CalendarClock, Sparkles, Settings, ListOrdered, Bot } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 
 export default function Navbar() {
@@ -34,7 +34,8 @@ export default function Navbar() {
     { name: 'Planner', path: '/followups', icon: CalendarClock },
     { name: 'Requests', path: '/history', icon: History },
     { name: 'Prefs', path: '/preferences', icon: Settings },
-    { name: 'Steps', path: '/steps', icon: ListOrdered }
+    { name: 'Steps', path: '/steps', icon: ListOrdered },
+    { name: 'AI Studio', path: '/ai-studio', icon: Bot },
   ];
 
   return (

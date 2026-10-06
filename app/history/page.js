@@ -153,7 +153,7 @@ export default function RequestHistory() {
                                 </div>
                              </div>
 
-                             {/* Staff Resolution / Next Steps */}
+                             {/* Staff Resolution & Next Steps */}
                              <div>
                                 <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1.5 flex items-center gap-1.5">
                                    <ShieldCheck className="w-3 h-3" /> Staff Resolution & Next Steps
@@ -184,15 +184,21 @@ export default function RequestHistory() {
                              </div>
                           </div>
                         ) : (
-                          // Fallback for structured Form records (Healthcare/Banking domains)
+                          // Fallback for structured Form records AND Granular Conversation transcripts
                           <div className="space-y-3">
                             <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block">Submitted Parameters</span>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            
+                            {/* Changed grid layout to 1 column to give chat transcripts full width */}
+                            <div className="grid grid-cols-1 gap-2">
                               {Object.entries(record.entities).map(([key, val]) => (
                                 val && (
                                   <div key={key} className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} text-xs font-mono`}>
                                     <span className="opacity-60 block text-[9px] uppercase mb-0.5">{key}</span>
-                                    <span className="font-bold truncate block">{val}</span>
+                                    {/* 
+                                        BUG FIX: Changed `truncate` to `whitespace-pre-wrap break-words` 
+                                        so long chat transcripts display fully and preserve new lines.
+                                    */}
+                                    <span className="font-bold block whitespace-pre-wrap break-words">{val}</span>
                                   </div>
                                 )
                               ))}

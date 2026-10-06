@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY", None)
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
+    # Places Search Provider Configuration
+    GOOGLE_PLACES_API_KEY: Optional[str] = os.getenv("GOOGLE_PLACES_API_KEY", None)
+    GOOGLE_MAPS_API_KEY: Optional[str] = os.getenv("GOOGLE_MAPS_API_KEY", None)
+    PLACES_PROVIDER: str = os.getenv("PLACES_PROVIDER", "google")
+
     REQUEST_TIMEOUT_SECONDS: int = 30
 
     model_config = {

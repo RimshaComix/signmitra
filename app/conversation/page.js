@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '@/context/ThemeContext';
 import {
   MessageSquare,
@@ -45,6 +46,7 @@ const DETAIL_TYPES = [
 ];
 
 export default function ConversationAssist() {
+  const router = useRouter();
   const { bgCanvas, textPrimary, textSecondary, cardBg, cardInnerBg, borderTone, accentSolid, isDarkTheme } = useTheme();
 
   const [messages, setMessages] = useState([
@@ -182,12 +184,10 @@ export default function ConversationAssist() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Derive verified details from the message array for the summary modal
   const getExtractedDetails = () => {
     const details = [];
     messages.forEach(msg => {
       if (msg.isConfirmBackRequest && msg.confirmData) {
-        // Find if it already exists, replace with latest status
         const existingIdx = details.findIndex(d => d.typeId === msg.confirmData.typeId && d.value === msg.confirmData.value);
         if (existingIdx >= 0) {
           details[existingIdx] = msg.confirmData;
@@ -201,20 +201,47 @@ export default function ConversationAssist() {
 
   const handleSaveSummary = (e) => {
     e.preventDefault();
+    
     const details = getExtractedDetails();
-    if (details.length === 0) {
-      alert("No structured details to save yet. Try confirming a detail first.");
-      return;
+    // Grab all messages except the bot intro
+    const allMessages = messages.filter(m => m.sender !== 'intro');
+    
+    const allVerified = details.length > 0 ? details.every(d => d.status === 'confirmed') : false;
+    
+    const entities = {};
+
+    // 1. ALWAYS save the full conversation transcript from top to bottom
+    const transcript = allMessages
+        .map(m => {
+            if (m.isConfirmBackRequest) {
+                return `You (Asked to Verify ${m.confirmData.typeLabel}): "${m.confirmData.value}"`;
+            }
+            return `${m.sender === 'user' ? 'You' : 'Staff'}: ${m.text}`;
+        })
+        .join('\n\n'); 
+    
+    entities["Full Chat Transcript"] = transcript || "No conversation recorded.";
+
+    // 2. Add verified details WITH the exact staff response to that detail
+    if (details.length > 0) {
+        details.forEach(d => {
+            // Find the staff's exact reply immediately following the verification request
+            const reqIndex = messages.findIndex(m => m.isConfirmBackRequest && m.confirmData.value === d.value);
+            let staffReplyToDetail = "No direct reply recorded";
+            
+            if (reqIndex !== -1 && reqIndex + 1 < messages.length && messages[reqIndex + 1].sender === 'staff') {
+                staffReplyToDetail = messages[reqIndex + 1].text;
+            }
+
+            const statusLabel = d.status === 'confirmed' ? '(Verified)' : '(Unverified)';
+            // This format will render beautifully in the History UI with the whitespace-pre-wrap CSS class
+            entities[`Detail: ${d.typeLabel} ${statusLabel}`] = `You asked: "${d.value}"\nStaff replied: "${staffReplyToDetail}"`;
+        });
     }
 
-    // Determine overall verification (only if ALL captured details are confirmed)
-    const allVerified = details.every(d => d.status === 'confirmed');
-    const entities = {};
-    details.forEach(d => {
-      entities[d.typeLabel] = `${d.value} ${d.status === 'confirmed' ? '(Verified)' : '(Unverified)'}`;
-    });
-
-    const primaryAction = details.find(d => d.typeId === 'action')?.value || 'Review saved details';
+    // 3. Find the final overall Staff Resolution
+    const staffMessages = messages.filter(m => m.sender === 'staff');
+    const primaryAction = staffMessages.length > 0 ? staffMessages[staffMessages.length - 1].text : "No staff response recorded";
     const primaryDate = details.find(d => d.typeId === 'datetime')?.value || new Date().toISOString().split('T')[0];
 
     const historyItem = {
@@ -261,6 +288,7 @@ export default function ConversationAssist() {
         setSaveSuccess(false);
         setShowSummaryModal(false);
         setAddToPlanner(false);
+        router.push('/history');
       }, 1500);
 
     } catch (err) {
@@ -270,6 +298,7 @@ export default function ConversationAssist() {
 
   const extractedDetails = getExtractedDetails();
   const fullyVerifiedSession = extractedDetails.length > 0 && extractedDetails.every(d => d.status === 'confirmed');
+  const hasDataToSave = extractedDetails.length > 0 || messages.filter(m => m.sender !== 'intro').length > 0;
 
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans antialiased flex flex-col justify-between ${bgCanvas} ${textPrimary}`}>
@@ -360,37 +389,49 @@ export default function ConversationAssist() {
                 </div>
 
                 <div className="space-y-4">
-                  {extractedDetails.length === 0 ? (
+                  {!hasDataToSave ? (
                     <div className={`p-6 text-center border border-dashed ${borderTone} rounded-xl opacity-70`}>
-                      <p className="text-xs font-mono font-bold uppercase tracking-wider">No details confirmed yet.</p>
-                      <p className="text-[10px] mt-1">Use the "Confirm Understanding" tool to track specific details.</p>
+                      <p className="text-xs font-mono font-bold uppercase tracking-wider">No conversation data to save.</p>
+                      <p className="text-[10px] mt-1">Type messages or confirm details to generate a summary.</p>
                     </div>
                   ) : (
-                    <ul className="space-y-2">
-                      {extractedDetails.map((detail, idx) => (
-                        <li key={idx} className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} flex justify-between items-start gap-4`}>
-                          <div>
-                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-0.5">{detail.typeLabel}</span>
-                            <span className="font-bold text-sm">{detail.value}</span>
-                          </div>
-                          <div className="shrink-0 pt-1">
-                            {detail.status === 'confirmed' ? (
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-green-600 dark:text-green-400 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Confirmed
-                              </span>
-                            ) : detail.status === 'clarification_needed' ? (
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-red-500 flex items-center gap-1">
-                                <X className="w-3 h-3" /> Clarifying
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> User Entered
-                              </span>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      <div className={`p-4 text-center border ${borderTone} ${cardInnerBg} rounded-xl`}>
+                        <p className="text-sm font-bold tracking-tight">Full Chat Transcript</p>
+                        <p className={`text-xs mt-1 font-medium ${textSecondary}`}>Your entire chat transcript will be securely saved to your history.</p>
+                      </div>
+                      
+                      {extractedDetails.length > 0 && (
+                        <div className="mt-4">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-2">Verified Details to Save:</span>
+                          <ul className="space-y-2">
+                            {extractedDetails.map((detail, idx) => (
+                              <li key={idx} className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} flex justify-between items-start gap-4`}>
+                                <div>
+                                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-0.5">{detail.typeLabel}</span>
+                                  <span className="font-bold text-sm">{detail.value}</span>
+                                </div>
+                                <div className="shrink-0 pt-1">
+                                  {detail.status === 'confirmed' ? (
+                                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-green-600 dark:text-green-400 flex items-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3" /> Confirmed
+                                    </span>
+                                  ) : detail.status === 'clarification_needed' ? (
+                                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-red-500 flex items-center gap-1">
+                                      <X className="w-3 h-3" /> Clarifying
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 flex items-center gap-1">
+                                      <Clock className="w-3 h-3" /> User Entered
+                                    </span>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -410,7 +451,8 @@ export default function ConversationAssist() {
                 <div className="pt-2">
                   <button 
                     type="submit" 
-                    className={`w-full py-3.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 ${accentSolid} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+                    disabled={!hasDataToSave}
+                    className={`w-full py-3.5 rounded-lg font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none ${hasDataToSave ? accentSolid + ' hover:opacity-90' : 'opacity-40 cursor-not-allowed border ' + borderTone}`}
                   >
                     <FileDown className="w-4 h-4" aria-hidden="true" /> Save Structured Record
                   </button>

@@ -1,0 +1,17 @@
+{
+  "model": "isl-lstm-v1",
+  "classes": [
+    "HELLO",
+    "THANK_YOU",
+    "HELP",
+    "DOCTOR",
+    "WHERE",
+    "WATER"
+  ],
+  "sequenceLength": 30,
+  "featuresPerFrame": 126,
+  "confidenceThreshold": 0.75,
+  "featureExtractor": "MediaPipe Hands",
+  "classifier": "Bidirectional LSTM"
+}
+

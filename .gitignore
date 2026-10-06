@@ -49,3 +49,11 @@ __pycache__/
 *$py.class
 .pytest_cache/
 backend/data/*.db
+
+# ISL dataset & trained model artifacts
+backend/isl/dataset/raw/
+backend/isl/dataset/processed/
+backend/isl/model/*.keras
+backend/isl/model/labels.json
+backend/isl/model/confusion_matrix.png
+

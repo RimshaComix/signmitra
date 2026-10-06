@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     GOOGLE_MAPS_API_KEY: Optional[str] = os.getenv("GOOGLE_MAPS_API_KEY", None)
     PLACES_PROVIDER: str = os.getenv("PLACES_PROVIDER", "google")
 
+    # ISL Recognition API URL
+    ISL_PYTHON_API: str = os.getenv("ISL_PYTHON_API", "http://127.0.0.1:8000")
+
     REQUEST_TIMEOUT_SECONDS: int = 30
 
     model_config = {

@@ -4,19 +4,14 @@ import React, { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import {
   RotateCcw,
-  Sparkles,
   Send,
-  CheckCircle2,
-  AlertTriangle,
-  Play,
-  Volume2,
   Check,
-  Building,
   GraduationCap,
   Landmark,
   HeartPulse,
   Bus,
-  FileCheck
+  FileCheck,
+  AlertTriangle
 } from 'lucide-react';
 
 const SCENARIOS = [
@@ -25,35 +20,77 @@ const SCENARIOS = [
     label: 'College Administration',
     icon: GraduationCap,
     desc: 'Verify fee receipts, submit exam forms, or request verified transcripts.',
-    initialStaff: 'Next please. Keep your student ID card and original fee slip ready on the counter.'
+    initialStaff:
+      'Next please. Keep your student ID card and original fee slip ready on the counter.',
+    checklist: [
+      'Carry photo identification',
+      'Prepare an opening communication card introducing your visual/written preference',
+      'Request a stamped acknowledgment copy before leaving the counter'
+    ]
   },
   {
     id: 'Bank Branch',
     label: 'Bank Counter / KYC',
     icon: Landmark,
     desc: 'Resolve signature mismatch, update KYC address, or deposit cheques.',
-    initialStaff: 'Please submit Form 2A along with self-attested copies of your PAN and Aadhaar.'
+    initialStaff:
+      'Please submit Form 2A along with self-attested copies of your PAN and Aadhaar.',
+    checklist: [
+      'Carry required identity and KYC documents',
+      'Keep self-attested copies ready if required',
+      'Request a receipt or acknowledgment for submitted documents'
+    ]
   },
   {
     id: 'Hospital OPD',
     label: 'Hospital Triage Desk',
     icon: HeartPulse,
     desc: 'Register for doctor consultation, obtain lab token, or collect medication.',
-    initialStaff: 'Take this green slip to Room 104 for preliminary blood pressure check.'
+    initialStaff:
+      'Take this green slip to Room 104 for preliminary blood pressure check.',
+    checklist: [
+      'Carry photo identification and relevant medical documents',
+      'Keep the registration or appointment details accessible',
+      'Confirm the room, token, and next step before leaving the desk'
+    ]
   },
   {
     id: 'Public Transit',
     label: 'Railway / Transit Help Desk',
     icon: Bus,
     desc: 'Request boarding assistance or ask for platform indicator guidance.',
-    initialStaff: 'Suburban trains for Tambaram leave from Platform 3. The next fast local is at 10:45 AM.'
+    initialStaff:
+      'Suburban trains for Tambaram leave from Platform 3. The next fast local is at 10:45 AM.',
+    checklist: [
+      'Keep your ticket or travel details accessible',
+      'Confirm the platform and destination before proceeding',
+      'Request a visual alert if you need help noticing announcements'
+    ]
   }
 ];
 
+const DEFAULT_FALLBACK_REPLY = {
+  text: 'Please submit your documents at the counter and take a receipt.',
+  demeanor: 'Fallback Practice Response',
+  suggestions: [
+    'Which counter should I go to?',
+    'Is there any fee?',
+    'Could you please write that down?'
+  ]
+};
+
 export default function RehearsalSimulator() {
-  const { bgCanvas, textPrimary, textSecondary, cardBg, cardInnerBg, borderTone, accentSolid, isDarkTheme } = useTheme();
+  const {
+    textSecondary,
+    cardBg,
+    cardInnerBg,
+    borderTone,
+    accentSolid,
+    isDarkTheme
+  } = useTheme();
 
   const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0]);
+
   const [turns, setTurns] = useState([
     {
       sender: 'staff',
@@ -61,66 +98,137 @@ export default function RehearsalSimulator() {
       demeanor: 'Busy Counter Staff'
     }
   ]);
+
   const [userReply, setUserReply] = useState('');
   const [isSimulating, setIsSimulating] = useState(false);
-  const [rehearsalChecklist, setRehearsalChecklist] = useState([
-    'Carry photo identification',
-    'Prepare opening communication card introducing visual/written preference',
-    'Request stamped acknowledgment copy before leaving counter'
-  ]);
 
-  const handleSelectScenario = (sc) => {
-    setSelectedScenario(sc);
+  const [rehearsalChecklist, setRehearsalChecklist] =
+    useState(SCENARIOS[0].checklist);
+
+  const [simulationError, setSimulationError] = useState(false);
+
+  // ---------------------------------------------------------------------------
+  // Scenario selection
+  // ---------------------------------------------------------------------------
+
+  const handleSelectScenario = (scenario) => {
+    if (isSimulating) return;
+
+    setSelectedScenario(scenario);
+
     setTurns([
       {
         sender: 'staff',
-        text: sc.initialStaff,
+        text: scenario.initialStaff,
         demeanor: 'Desk Official'
       }
     ]);
+
+    setRehearsalChecklist(scenario.checklist);
+    setUserReply('');
+    setSimulationError(false);
   };
 
+  // ---------------------------------------------------------------------------
+  // Send practice turn
+  // ---------------------------------------------------------------------------
+
   const handleSendTurn = async (replyText = null) => {
-    const text = replyText || userReply;
+    if (isSimulating) return;
+
+    const text = replyText ?? userReply;
+
     if (!text.trim()) return;
 
-    const userTurn = { sender: 'user', text };
+    const cleanText = text.trim();
+
+    const userTurn = {
+      sender: 'user',
+      text: cleanText
+    };
+
     const updatedTurns = [...turns, userTurn];
+
     setTurns(updatedTurns);
-    if (!replyText) setUserReply('');
+    setUserReply('');
     setIsSimulating(true);
+    setSimulationError(false);
 
     try {
-      const res = await fetch('/api/ai-studio', {
+      const response = await fetch('/api/ai-studio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           action: 'simulate_rehearsal',
           scenario: selectedScenario.id,
-          userTurn: text
+          userTurn: cleanText
         })
       });
 
-      const data = await res.json();
+      let data = null;
+
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            `Rehearsal simulation failed with status ${response.status}`
+        );
+      }
+
       const staffTurn = {
         sender: 'staff',
-        text: data.staffResponse || 'Please submit your documents at the counter and take a receipt.',
-        demeanor: data.staffDemeanor || 'Desk Staff',
-        suggestions: data.suggestedUserReplies || []
+        text:
+          typeof data?.staffResponse === 'string' &&
+          data.staffResponse.trim()
+            ? data.staffResponse.trim()
+            : DEFAULT_FALLBACK_REPLY.text,
+        demeanor:
+          typeof data?.staffDemeanor === 'string' &&
+          data.staffDemeanor.trim()
+            ? data.staffDemeanor.trim()
+            : 'Desk Staff',
+        suggestions: Array.isArray(data?.suggestedUserReplies)
+          ? data.suggestedUserReplies.filter(
+              (reply) =>
+                typeof reply === 'string' && reply.trim()
+            )
+          : []
       };
 
       setTurns([...updatedTurns, staffTurn]);
-      if (data.rehearsalChecklist) {
-        setRehearsalChecklist(data.rehearsalChecklist);
+
+      if (Array.isArray(data?.rehearsalChecklist)) {
+        const validChecklist = data.rehearsalChecklist.filter(
+          (item) =>
+            typeof item === 'string' && item.trim()
+        );
+
+        if (validChecklist.length > 0) {
+          setRehearsalChecklist(validChecklist);
+        }
       }
-    } catch (e) {
+    } catch (error) {
+      console.warn(
+        'Rehearsal simulation provider unavailable:',
+        error
+      );
+
+      setSimulationError(true);
+
       setTurns([
         ...updatedTurns,
         {
           sender: 'staff',
-          text: 'Understood. Please present your verified slip at Window 2.',
-          demeanor: 'Standard Response',
-          suggestions: ['Which counter is Window 2?', 'Is there any fee?']
+          text: DEFAULT_FALLBACK_REPLY.text,
+          demeanor: DEFAULT_FALLBACK_REPLY.demeanor,
+          suggestions: DEFAULT_FALLBACK_REPLY.suggestions
         }
       ]);
     } finally {
@@ -128,7 +236,13 @@ export default function RehearsalSimulator() {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Reset current practice
+  // ---------------------------------------------------------------------------
+
   const handleReset = () => {
+    if (isSimulating) return;
+
     setTurns([
       {
         sender: 'staff',
@@ -136,45 +250,75 @@ export default function RehearsalSimulator() {
         demeanor: 'Desk Official'
       }
     ]);
+
+    setRehearsalChecklist(selectedScenario.checklist);
+    setUserReply('');
+    setSimulationError(false);
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      
-      {/* Header Banner */}
-      <div className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-2 shadow-sm`}>
-        <div className="flex items-center gap-2">
-          <span className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${accentSolid}`}>
+
+      {/* Header */}
+      <div
+        className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-2 shadow-sm`}
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${accentSolid}`}
+          >
             FEATURE 19 · PRACTICE SIMULATION
           </span>
+
           <span className="text-xs font-mono opacity-70">
             Interactive Roleplay (Safe Sandbox)
           </span>
         </div>
+
         <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
           Conversation Rehearsal Simulator
         </h2>
-        <p className={`text-xs sm:text-sm font-medium ${textSecondary}`}>
-          Practice typical counter conversations before real-life appointments. The simulated staff response helps you anticipate what documents or questions will be asked.
+
+        <p
+          className={`text-xs sm:text-sm font-medium ${textSecondary}`}
+        >
+          Practice typical counter conversations before real-life
+          appointments. Simulated staff responses help you rehearse
+          possible questions, documents, and next steps.
         </p>
       </div>
 
       {/* Scenario Selector */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        {SCENARIOS.map((sc) => {
-          const Icon = sc.icon;
-          const isSelected = selectedScenario.id === sc.id;
+        {SCENARIOS.map((scenario) => {
+          const Icon = scenario.icon;
+          const isSelected =
+            selectedScenario.id === scenario.id;
+
           return (
             <button
-              key={sc.id}
-              onClick={() => handleSelectScenario(sc)}
+              key={scenario.id}
+              onClick={() => handleSelectScenario(scenario)}
+              disabled={isSimulating}
               className={`p-3.5 rounded-xl border text-left transition-all ${
-                isSelected ? 'border-[#655A7C] ring-2 ring-[#655A7C] ' + cardInnerBg : cardBg + ' ' + borderTone
+                isSelected
+                  ? `border-[#655A7C] ring-2 ring-[#655A7C] ${cardInnerBg}`
+                  : `${cardBg} ${borderTone}`
+              } ${
+                isSimulating
+                  ? 'opacity-60 cursor-not-allowed'
+                  : 'hover:border-[#655A7C]'
               }`}
             >
               <Icon className="w-4 h-4 mb-2 opacity-80" />
-              <div className="text-xs font-black uppercase tracking-tight truncate">{sc.label}</div>
-              <p className="text-[10px] opacity-60 line-clamp-1 mt-0.5">{sc.desc}</p>
+
+              <div className="text-xs font-black uppercase tracking-tight truncate">
+                {scenario.label}
+              </div>
+
+              <p className="text-[10px] opacity-60 line-clamp-1 mt-0.5">
+                {scenario.desc}
+              </p>
             </button>
           );
         })}
@@ -182,111 +326,220 @@ export default function RehearsalSimulator() {
 
       {/* Interactive Dialogue Canvas */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        
+
         {/* Dialogue Stream */}
-        <div className={`lg:col-span-8 p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm flex flex-col justify-between min-h-[420px]`}>
-          
+        <div
+          className={`lg:col-span-8 p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm flex flex-col justify-between min-h-[420px]`}
+        >
           <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
-            <div className="flex justify-between items-center pb-2 border-b border-dashed" style={{ borderColor: isDarkTheme ? '#AB92BF30' : '#655A7C20' }}>
-              <span className="text-xs font-mono font-bold opacity-70">Simulation Stream: {selectedScenario.label}</span>
+
+            {/* Stream header */}
+            <div
+              className="flex justify-between items-center pb-2 border-b border-dashed"
+              style={{
+                borderColor: isDarkTheme
+                  ? '#AB92BF30'
+                  : '#655A7C20'
+              }}
+            >
+              <span className="text-xs font-mono font-bold opacity-70">
+                Simulation Stream: {selectedScenario.label}
+              </span>
+
               <button
                 onClick={handleReset}
-                className="text-[10px] font-mono font-bold flex items-center gap-1 opacity-60 hover:opacity-100"
+                disabled={isSimulating}
+                className={`text-[10px] font-mono font-bold flex items-center gap-1 transition-opacity ${
+                  isSimulating
+                    ? 'opacity-30 cursor-not-allowed'
+                    : 'opacity-60 hover:opacity-100'
+                }`}
               >
-                <RotateCcw className="w-3 h-3" /> Reset Practice
+                <RotateCcw className="w-3 h-3" />
+                Reset Practice
               </button>
             </div>
 
-            {turns.map((t, idx) => {
-              const isStaff = t.sender === 'staff';
+            {/* Turns */}
+            {turns.map((turn, index) => {
+              const isStaff = turn.sender === 'staff';
+              const isLatest = index === turns.length - 1;
+
               return (
                 <div
-                  key={idx}
+                  key={`${turn.sender}-${index}`}
                   className={`p-3.5 rounded-xl border ${
-                    isStaff ? cardInnerBg + ' mr-auto max-w-[88%]' : accentSolid + ' ml-auto max-w-[80%]'
+                    isStaff
+                      ? `${cardInnerBg} mr-auto max-w-[88%]`
+                      : `${accentSolid} ml-auto max-w-[80%]`
                   } ${borderTone} space-y-1.5`}
                 >
                   <div className="flex justify-between items-center text-[10px] font-mono">
-                    <span className="font-bold">{isStaff ? `SIMULATED STAFF (${t.demeanor})` : 'YOU (PRACTICE)'}</span>
+                    <span className="font-bold">
+                      {isStaff
+                        ? `SIMULATED STAFF (${turn.demeanor})`
+                        : 'YOU (PRACTICE)'}
+                    </span>
                   </div>
-                  <p className="text-sm font-bold leading-relaxed">{t.text}</p>
 
-                  {/* 1-Tap quick reply suggestions */}
-                  {isStaff && t.suggestions?.length > 0 && idx === turns.length - 1 && (
-                    <div className="pt-2 border-t border-dashed mt-2" style={{ borderColor: isDarkTheme ? '#AB92BF30' : '#655A7C20' }}>
-                      <span className="text-[10px] font-mono opacity-60 block mb-1">Quick Practice Replies:</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {t.suggestions.map((s, sIdx) => (
-                          <button
-                            key={sIdx}
-                            onClick={() => handleSendTurn(s)}
-                            className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-all ${cardBg} ${borderTone} hover:border-[#655A7C]`}
-                          >
-                            "{s}"
-                          </button>
-                        ))}
+                  <p className="text-sm font-bold leading-relaxed">
+                    {turn.text}
+                  </p>
+
+                  {/* Quick replies */}
+                  {isStaff &&
+                    Array.isArray(turn.suggestions) &&
+                    turn.suggestions.length > 0 &&
+                    isLatest && (
+                      <div
+                        className="pt-2 border-t border-dashed mt-2"
+                        style={{
+                          borderColor: isDarkTheme
+                            ? '#AB92BF30'
+                            : '#655A7C20'
+                        }}
+                      >
+                        <span className="text-[10px] font-mono opacity-60 block mb-1">
+                          Quick Practice Replies:
+                        </span>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          {turn.suggestions.map(
+                            (suggestion, suggestionIndex) => (
+                              <button
+                                key={suggestionIndex}
+                                onClick={() =>
+                                  handleSendTurn(suggestion)
+                                }
+                                disabled={isSimulating}
+                                className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-all ${cardBg} ${borderTone} ${
+                                  isSimulating
+                                    ? 'opacity-40 cursor-not-allowed'
+                                    : 'hover:border-[#655A7C] active:scale-95'
+                                }`}
+                              >
+                                "{suggestion}"
+                              </button>
+                            )
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               );
             })}
 
+            {/* Loading */}
             {isSimulating && (
-              <div className={`p-3 rounded-xl border ${cardInnerBg} mr-auto animate-pulse text-xs font-mono`}>
-                Simulated staff is reviewing your reply...
+              <div
+                className={`p-3 rounded-xl border ${cardInnerBg} mr-auto animate-pulse text-xs font-mono`}
+              >
+                Simulated staff is preparing a practice response...
+              </div>
+            )}
+
+            {/* Fallback notice */}
+            {simulationError && (
+              <div className="p-3 rounded-xl border border-orange-500/30 bg-orange-500/10 text-[10px] font-mono text-orange-900 dark:text-orange-200 flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+
+                <span>
+                  Live simulation service was unavailable. The response
+                  shown above is a predefined practice fallback, not a
+                  live AI-generated response.
+                </span>
               </div>
             )}
           </div>
 
-          {/* User Input Bar */}
-          <div className="pt-3 border-t flex gap-2" style={{ borderColor: isDarkTheme ? '#AB92BF30' : '#655A7C20' }}>
+          {/* User Input */}
+          <div
+            className="pt-3 border-t flex gap-2"
+            style={{
+              borderColor: isDarkTheme
+                ? '#AB92BF30'
+                : '#655A7C20'
+            }}
+          >
             <input
               type="text"
               value={userReply}
-              onChange={(e) => setUserReply(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendTurn()}
+              onChange={(event) =>
+                setUserReply(event.target.value)
+              }
+              onKeyDown={(event) => {
+                if (
+                  event.key === 'Enter' &&
+                  !event.shiftKey &&
+                  !isSimulating
+                ) {
+                  event.preventDefault();
+                  handleSendTurn();
+                }
+              }}
+              disabled={isSimulating}
               placeholder="Type your practice response or show a card..."
-              className={`flex-1 p-3 rounded-xl font-bold text-xs border outline-none ${cardInnerBg} ${borderTone}`}
+              className={`flex-1 p-3 rounded-xl font-bold text-xs border outline-none ${cardInnerBg} ${borderTone} ${
+                isSimulating
+                  ? 'opacity-50 cursor-not-allowed'
+                  : ''
+              }`}
             />
+
             <button
               onClick={() => handleSendTurn()}
               disabled={!userReply.trim() || isSimulating}
-              className={`px-5 py-3 rounded-xl font-black text-xs uppercase ${accentSolid} hover:opacity-90 flex items-center gap-1.5`}
+              className={`px-5 py-3 rounded-xl font-black text-xs uppercase flex items-center gap-1.5 transition-all ${
+                userReply.trim() && !isSimulating
+                  ? `${accentSolid} hover:opacity-90`
+                  : `${accentSolid} opacity-40 cursor-not-allowed`
+              }`}
             >
               <Send className="w-3.5 h-3.5" />
-              <span>Reply</span>
+
+              <span>
+                {isSimulating ? 'Thinking...' : 'Reply'}
+              </span>
             </button>
           </div>
         </div>
 
         {/* Rehearsal Checklist */}
-        <div className={`lg:col-span-4 p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-3 shadow-sm`}>
+        <div
+          className={`lg:col-span-4 p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-3 shadow-sm`}
+        >
           <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase">
             <FileCheck className="w-4 h-4 text-green-500" />
             <span>Rehearsal Checklist:</span>
           </div>
 
           <p className="text-[11px] opacity-70 leading-relaxed">
-            Ensure you have these points clear in mind before approaching the actual desk:
+            Use these points as preparation reminders before approaching
+            the actual desk.
           </p>
 
           <div className="space-y-2 pt-1">
-            {rehearsalChecklist.map((item, idx) => (
-              <div key={idx} className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs font-bold ${cardInnerBg} ${borderTone}`}>
+            {rehearsalChecklist.map((item, index) => (
+              <div
+                key={index}
+                className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs font-bold ${cardInnerBg} ${borderTone}`}
+              >
                 <Check className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />
-                <span className="leading-snug">{item}</span>
+
+                <span className="leading-snug">
+                  {item}
+                </span>
               </div>
             ))}
           </div>
 
           <div className="p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 text-[10px] font-mono text-blue-900 dark:text-blue-200">
-            Note: This simulation is an educational practice companion; actual counter staff responses will vary based on individual desk workload.
+            Note: This simulation is an educational practice
+            companion. Actual counter staff responses, document
+            requirements, fees, and procedures may vary.
           </div>
         </div>
-
       </div>
-
     </div>
   );
 }

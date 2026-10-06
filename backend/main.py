@@ -83,6 +83,20 @@ app.include_router(sessions.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(isl.router, prefix="/api")
 
+# Root-level ISL Recognition API endpoints (/health and /predict) so that
+# ISL_PYTHON_API=http://127.0.0.1:8000 works whether running `backend.main:app`
+# or `backend.isl.app:app`.
+from backend.isl.app import get_isl_health_payload, run_isl_prediction
+
+@app.get("/health")
+def root_isl_health():
+    return get_isl_health_payload()
+
+@app.post("/predict")
+def root_isl_predict(payload: dict):
+    return run_isl_prediction(payload)
+
+
 # Compatibility proxy endpoint for Next.js /api/ai-studio
 @app.post("/api/ai-studio")
 async def ai_studio_action_dispatcher(payload: dict):

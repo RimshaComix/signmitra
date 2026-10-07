@@ -1,17 +1,118 @@
 {
-  "model": "isl-lstm-v1",
-  "classes": [
-    "HELLO",
-    "THANK_YOU",
-    "HELP",
-    "DOCTOR",
-    "WHERE",
-    "WATER"
+  "model_name": "ISL Static V1",
+  "model_id": "isl-static-v1",
+  "version": "1.0.0",
+  "trained_at": "2026-10-07T17:32:21.838617+00:00",
+  "dataset": "dwibonbhargabdeka/isl-dataset-mediapipe-hand-landmarks",
+  "train_file": "combined_train_dataset.csv",
+  "held_out_test_file": "held_out_dataset.csv",
+  "classes": 23,
+  "supported_signs": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "I",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "W",
+    "X",
+    "Z"
   ],
-  "sequenceLength": 30,
-  "featuresPerFrame": 126,
-  "confidenceThreshold": 0.75,
-  "featureExtractor": "MediaPipe Hands",
-  "classifier": "Bidirectional LSTM"
+  "excluded_signs": [
+    "H",
+    "J",
+    "Y"
+  ],
+  "features": 126,
+  "feature_type": "MediaPipe Hands landmarks (63 left + 63 right)",
+  "normalization": "wrist-relative + single-hand right-slot alignment + StandardScaler (fit on combined_train_dataset.csv train split only)",
+  "architecture": [
+    "Input(126)",
+    "Dense(256, ReLU)",
+    "BatchNormalization",
+    "Dropout(0.30)",
+    "Dense(128, ReLU)",
+    "BatchNormalization",
+    "Dropout(0.25)",
+    "Dense(64, ReLU)",
+    "Dropout(0.20)",
+    "Dense(23, Softmax)"
+  ],
+  "validation_protocol": "15% stratified contiguous block holdout from combined_train_dataset.csv",
+  "test_protocol": "held-out unseen contributor (held_out_dataset.csv)",
+  "threshold": 0.75,
+  "best_epoch": 5,
+  "validation_accuracy": 1.0,
+  "train_metrics": {
+    "samples": 18479,
+    "accuracy": 0.9999,
+    "macro_precision": 0.9999,
+    "macro_recall": 0.9999,
+    "macro_f1": 0.9999
+  },
+  "validation_metrics": {
+    "samples": 3261,
+    "accuracy": 1.0,
+    "macro_precision": 1.0,
+    "macro_recall": 1.0,
+    "macro_f1": 1.0
+  },
+  "held_out_test_metrics": {
+    "samples": 1150,
+    "accuracy": 0.9948,
+    "macro_precision": 0.995,
+    "macro_recall": 0.9948,
+    "macro_f1": 0.9947,
+    "lowest_f1_classes": [
+      {
+        "sign": "W",
+        "precision": 1.0,
+        "recall": 0.88,
+        "f1": 0.9362,
+        "support": 50
+      },
+      {
+        "sign": "C",
+        "precision": 0.9615,
+        "recall": 1.0,
+        "f1": 0.9804,
+        "support": 50
+      },
+      {
+        "sign": "G",
+        "precision": 0.9615,
+        "recall": 1.0,
+        "f1": 0.9804,
+        "support": 50
+      },
+      {
+        "sign": "E",
+        "precision": 0.9804,
+        "recall": 1.0,
+        "f1": 0.9901,
+        "support": 50
+      },
+      {
+        "sign": "R",
+        "precision": 0.9804,
+        "recall": 1.0,
+        "f1": 0.9901,
+        "support": 50
+      }
+    ]
+  }
 }
-

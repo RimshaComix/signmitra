@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const SEQUENCE_LENGTH = 30;
-const FEATURES_PER_FRAME = 126;
+const NUM_FEATURES = 126;
 
 function getIslPythonApiUrl() {
   return (
@@ -13,8 +12,8 @@ function getIslPythonApiUrl() {
 
 /**
  * GET /api/isl/predict
- * Queries the FastAPI `/health` endpoint to report honest model status
- * (MODEL READY vs MODEL NOT TRAINED vs MODEL UNAVAILABLE) to the frontend.
+ * Queries the FastAPI `/health` endpoint to report model status
+ * (`ISL Static V1`, 23 classes, threshold) to the ISL Lab UI.
  */
 export async function GET() {
   const baseUrl = getIslPythonApiUrl();
@@ -32,8 +31,8 @@ export async function GET() {
           status: 'unavailable',
           backend_available: false,
           model_loaded: false,
-          model: 'isl-lstm-v1',
-          message: `FastAPI returned HTTP ${res.status}.`
+          model: 'isl-static-v1',
+          message: 'ISL recognition model is not trained/configured.'
         },
         { status: 503 }
       );
@@ -44,14 +43,14 @@ export async function GET() {
       ...data,
       backend_available: true
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       {
         status: 'unavailable',
         backend_available: false,
         model_loaded: false,
-        model: 'isl-lstm-v1',
-        message: 'FastAPI ISL service is unreachable. Start the Python server on port 8000.'
+        model: 'isl-static-v1',
+        message: 'FastAPI ISL recognition service is unavailable on port 8000.'
       },
       { status: 503 }
     );
@@ -60,8 +59,8 @@ export async function GET() {
 
 /**
  * POST /api/isl/predict
- * Validates that a (30, 126) landmark sequence is present and forwards it to
- * the Python FastAPI `/predict` endpoint. Never performs fake or fallback inference.
+ * Validates incoming 126-feature hand landmark payload (`features`, `landmarks`, or `sequence`)
+ * and forwards it to FastAPI `/predict`. Never fabricates fallback predictions.
  */
 export async function POST(req) {
   let payload;
@@ -70,37 +69,52 @@ export async function POST(req) {
   } catch {
     return NextResponse.json(
       {
-        recognized: false,
-        sign: null,
+        success: false,
+        status: 'invalid_input',
+        prediction: null,
         message: 'Invalid JSON request body.'
       },
       { status: 400 }
     );
   }
 
-  if (!payload || !Array.isArray(payload.sequence)) {
+  if (!payload || typeof payload !== 'object') {
     return NextResponse.json(
       {
-        recognized: false,
-        sign: null,
-        message: "Request body must include a 'sequence' array of 30 frames."
+        success: false,
+        status: 'invalid_input',
+        prediction: null,
+        message: 'Request body must be a JSON object.'
       },
       { status: 400 }
     );
   }
 
-  const { sequence } = payload;
-  if (
-    sequence.length !== SEQUENCE_LENGTH ||
-    !sequence.every(
-      (frame) => Array.isArray(frame) && frame.length === FEATURES_PER_FRAME
-    )
-  ) {
+  const vec = payload.features || payload.landmarks;
+  const seq = payload.sequence;
+
+  const isValidVec =
+    Array.isArray(vec) &&
+    vec.length === NUM_FEATURES &&
+    vec.every((v) => typeof v === 'number' && Number.isFinite(v));
+
+  const isValidSeq =
+    Array.isArray(seq) &&
+    seq.length > 0 &&
+    seq.every(
+      (frame) =>
+        Array.isArray(frame) &&
+        frame.length === NUM_FEATURES &&
+        frame.every((v) => typeof v === 'number' && Number.isFinite(v))
+    );
+
+  if (!isValidVec && !isValidSeq) {
     return NextResponse.json(
       {
-        recognized: false,
-        sign: null,
-        message: `Invalid sequence shape: expected (${SEQUENCE_LENGTH}, ${FEATURES_PER_FRAME}).`
+        success: false,
+        status: 'invalid_input',
+        prediction: null,
+        message: `Expected 'features' or 'landmarks' array of ${NUM_FEATURES} finite numbers.`
       },
       { status: 400 }
     );
@@ -112,7 +126,7 @@ export async function POST(req) {
     const res = await fetch(`${baseUrl}/predict`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sequence }),
+      body: JSON.stringify(isValidVec ? { features: vec } : { sequence: seq }),
       signal: AbortSignal.timeout(5000)
     });
 
@@ -125,17 +139,20 @@ export async function POST(req) {
           ? detail.message
           : typeof detail === 'string'
           ? detail
-          : data?.message || 'Model inference unavailable.';
+          : data?.message || 'ISL recognition model is not trained/configured.';
 
       return NextResponse.json(
         {
+          success: false,
+          status: 'model_unavailable',
           recognized: false,
+          prediction: null,
           sign: null,
           model_loaded:
             typeof detail === 'object' && 'model_loaded' in detail
               ? detail.model_loaded
               : false,
-          model: 'isl-lstm-v1',
+          model: 'isl-static-v1',
           message: errMessage
         },
         { status: res.status }
@@ -143,15 +160,18 @@ export async function POST(req) {
     }
 
     return NextResponse.json(data, { status: 200 });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       {
+        success: false,
+        status: 'backend_unavailable',
         recognized: false,
+        prediction: null,
         sign: null,
         backend_available: false,
         model_loaded: false,
-        model: 'isl-lstm-v1',
-        message: 'FastAPI ISL inference service is unavailable.'
+        model: 'isl-static-v1',
+        message: 'FastAPI ISL recognition service is unavailable.'
       },
       { status: 503 }
     );

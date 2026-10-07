@@ -53,7 +53,12 @@ backend/data/*.db
 # ISL dataset & trained model artifacts
 backend/isl/dataset/raw/
 backend/isl/dataset/processed/
+backend/isl/dataset/kaggle_isl/
+backend/isl/dataset/*.csv
 backend/isl/model/*.keras
+backend/isl/model/scaler.pkl
+backend/isl/model/validation_split.json
 backend/isl/model/labels.json
 backend/isl/model/confusion_matrix.png
+
 

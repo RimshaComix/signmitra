@@ -32,7 +32,7 @@ Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ensure tables and seed records
+    # Startup: ensure tables, seed records, and reload ISL Static V1 model weights
     logger.info("Initializing SignMitra Database tables...")
     Base.metadata.create_all(bind=engine)
     
@@ -42,6 +42,10 @@ async def lifespan(app: FastAPI):
         logger.info("Database verification and seeding completed.")
     finally:
         db.close()
+
+    from backend.isl.predict import predictor
+    loaded = predictor.reload_weights(force=True)
+    logger.info("ISL Static V1 model weights reload at startup: loaded=%s", loaded)
         
     yield
     logger.info("Shutting down SignMitra AI Backend.")

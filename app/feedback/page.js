@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import {
@@ -8,15 +8,13 @@ import {
   ArrowRight,
   Sun,
   Moon,
-  Building,
   CheckCircle2,
-  XCircle,
   AlertTriangle,
   Send,
   HelpCircle,
   ShieldAlert,
   Star,
-  MessageSquarePlus
+  ListTodo
 } from 'lucide-react';
 
 /* 
@@ -45,7 +43,7 @@ export default function AnonymousFeedback() {
   
   // Upgraded Feedback Data State with 1-5 ratings and optional comments
   const [feedback, setFeedback] = useState({
-    interpreterRating: 0, // 1-5 or 0 (skipped/not asked)
+    interpreterRating: 0,
     writtenSupportRating: 0,
     visualDisplayRating: 0,
     staffCommunicationRating: 0,
@@ -54,6 +52,17 @@ export default function AnonymousFeedback() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [savedReviews, setSavedReviews] = useState([]);
+
+  // Load saved reviews on mount
+  useEffect(() => {
+    try {
+      const existingReviews = JSON.parse(localStorage.getItem('signmitra_accessibility_reviews') || '[]');
+      setSavedReviews(existingReviews);
+    } catch (e) {
+      setSavedReviews([]);
+    }
+  }, []);
 
   const handleStarRating = (category, rating) => {
     setFeedback(prev => ({ ...prev, [category]: rating }));
@@ -71,13 +80,30 @@ export default function AnonymousFeedback() {
         institutionName,
         institutionType,
         ...feedback,
-        timestamp: new Date().toLocaleDateString()
+        timestamp: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       };
-      localStorage.setItem('signmitra_accessibility_reviews', JSON.stringify([newReview, ...existingReviews]));
+      
+      const updatedReviews = [newReview, ...existingReviews];
+      localStorage.setItem('signmitra_accessibility_reviews', JSON.stringify(updatedReviews));
+      setSavedReviews(updatedReviews);
       
       setIsSubmitting(false);
       setStep(3);
     }, 1200);
+  };
+
+  const resetForm = () => {
+    setInstitutionName('');
+    setInstitutionType('Hospital / Medical');
+    setFeedback({
+      interpreterRating: 0,
+      writtenSupportRating: 0,
+      visualDisplayRating: 0,
+      staffCommunicationRating: 0,
+      overallRating: 0,
+      visitorComments: ''
+    });
+    setStep(1);
   };
 
   const isFormComplete = feedback.overallRating > 0;
@@ -111,7 +137,7 @@ export default function AnonymousFeedback() {
 
       <main className="max-w-2xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 flex-1 flex flex-col">
         
-        {/* STEP 1: Institution Details */}
+        {/* STEP 1: Institution Details & Past Reviews */}
         {step === 1 && (
           <div className="animate-in fade-in duration-300 space-y-6">
             <header className="mb-8">
@@ -128,6 +154,7 @@ export default function AnonymousFeedback() {
             </header>
 
             <div className={`p-5 sm:p-7 rounded-2xl border-2 ${borderTone} ${cardBg} shadow-sm space-y-5`}>
+              <h2 className="font-black text-lg uppercase tracking-tight border-b pb-3 mb-2" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>Submit New Review</h2>
               <div className="space-y-1.5">
                 <label htmlFor="inst-type" className="text-xs font-mono font-bold uppercase tracking-wider block opacity-70">
                   Institution Type
@@ -161,15 +188,97 @@ export default function AnonymousFeedback() {
                   className={`w-full p-4 font-bold border-2 rounded-xl text-sm outline-none transition-colors focus:border-[#655A7C] ${cardInnerBg} ${borderTone}`}
                 />
               </div>
+
+              <button
+                onClick={() => setStep(2)}
+                disabled={!institutionName.trim()}
+                className={`w-full py-4 mt-2 rounded-xl font-black text-sm uppercase tracking-widest shadow-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none ${institutionName.trim() ? accentSolid : 'opacity-50 cursor-not-allowed border-2 ' + borderTone}`}
+              >
+                Continue to Accessibility Rating <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </button>
             </div>
 
-            <button
-              onClick={() => setStep(2)}
-              disabled={!institutionName.trim()}
-              className={`w-full py-4 rounded-xl font-black text-sm uppercase tracking-widest shadow-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none ${institutionName.trim() ? accentSolid : 'opacity-50 cursor-not-allowed border-2 ' + borderTone}`}
-            >
-              Continue to Accessibility Rating <ArrowRight className="w-4 h-4" aria-hidden="true" />
-            </button>
+            {/* Display Saved Reviews */}
+            <div className={`mt-10 p-6 rounded-2xl border-2 ${borderTone} ${cardBg} shadow-sm space-y-4`}>
+              <h2 className="font-black text-lg uppercase tracking-tight border-b pb-3" style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}>Your Past Reviews</h2>
+              
+              {savedReviews.length > 0 ? (
+                <div className="space-y-4">
+                  {savedReviews.map(review => (
+                    <div key={review.id} className={`p-4 rounded-xl border ${borderTone} ${cardInnerBg} flex flex-col gap-3`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 mb-1">{review.institutionType}</div>
+                          <h3 className="font-black text-base">{review.institutionName}</h3>
+                        </div>
+                      </div>
+
+                      {/* Detailed Breakdown Grid - ALL OPTIONS VISIBLE */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                        {/* 1. Overall Rating */}
+                        <div className={`p-2.5 rounded-lg border flex flex-row items-center justify-between ${isDarkTheme ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-yellow-50 border-yellow-500/40'}`}>
+                          <span className="text-[10px] font-mono font-black uppercase tracking-wider text-yellow-700 dark:text-yellow-400">Overall Experience</span>
+                          <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
+                            <span className="text-xs font-black">{review.overallRating}/5</span>
+                            <Star className="w-3.5 h-3.5 fill-current" />
+                          </div>
+                        </div>
+
+                        {/* 2. ISL Interpreter */}
+                        {review.interpreterRating > 0 && (
+                          <div className={`p-2.5 rounded-lg border ${borderTone} ${cardBg} flex flex-row items-center justify-between`}>
+                            <span className="text-[10px] font-mono font-bold uppercase opacity-70">ISL Interpreter</span>
+                            <div className="flex items-center gap-0.5 text-yellow-600 dark:text-yellow-400">
+                              <span className="text-[10px] font-black">{review.interpreterRating}</span>
+                              <Star className="w-3 h-3 fill-current" />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 3. Visual Display */}
+                        {review.visualDisplayRating > 0 && (
+                          <div className={`p-2.5 rounded-lg border ${borderTone} ${cardBg} flex flex-row items-center justify-between`}>
+                            <span className="text-[10px] font-mono font-bold uppercase opacity-70">Visual Queue</span>
+                            <div className="flex items-center gap-0.5 text-yellow-600 dark:text-yellow-400">
+                              <span className="text-[10px] font-black">{review.visualDisplayRating}</span>
+                              <Star className="w-3 h-3 fill-current" />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 4. Written Support */}
+                        {review.writtenSupportRating > 0 && (
+                          <div className={`p-2.5 rounded-lg border ${borderTone} ${cardBg} flex flex-row items-center justify-between`}>
+                            <span className="text-[10px] font-mono font-bold uppercase opacity-70">Written Support</span>
+                            <div className="flex items-center gap-0.5 text-yellow-600 dark:text-yellow-400">
+                              <span className="text-[10px] font-black">{review.writtenSupportRating}</span>
+                              <Star className="w-3 h-3 fill-current" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Visitor Comments */}
+                      {review.visitorComments && (
+                        <p className={`text-xs font-medium italic mt-2 opacity-80 pl-3 border-l-2 border-dashed`} style={{ borderColor: isDarkTheme ? '#AB92BF50' : '#655A7C50' }}>
+                          "{review.visitorComments}"
+                        </p>
+                      )}
+                      
+                      <div className="text-[10px] font-mono font-bold uppercase opacity-50 mt-1 text-right">
+                        Submitted: {review.timestamp}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={`py-8 text-center rounded-xl border border-dashed ${borderTone} ${cardInnerBg} opacity-70`}>
+                  <ListTodo className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                  <p className="text-xs font-bold uppercase tracking-wider">No feedback records found</p>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
@@ -339,7 +448,13 @@ export default function AnonymousFeedback() {
               Your accessibility review has been successfully stored locally on this device for your records and review.
             </p>
 
-            <div className="pt-8">
+            <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={resetForm}
+                className={`inline-block px-8 py-4 rounded-xl border-2 font-black text-sm uppercase tracking-widest shadow-sm transition-all ${cardBg} ${borderTone} hover:opacity-90 focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}
+              >
+                Submit Another
+              </button>
               <Link
                 href="/communication-hub"
                 className={`inline-block px-8 py-4 rounded-xl font-black text-sm uppercase tracking-widest shadow-sm transition-all ${accentSolid} hover:opacity-90 focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none`}

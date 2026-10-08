@@ -37,12 +37,24 @@ export default function EvidenceAssistant() {
     setError('');
 
     try {
+      // 1. Pull dynamic user reviews from local storage
+      let localReviews = [];
+      if (typeof window !== 'undefined') {
+        try {
+          localReviews = JSON.parse(localStorage.getItem('signmitra_accessibility_reviews') || '[]');
+        } catch (err) {
+          console.error('Error reading local reviews:', err);
+        }
+      }
+
+      // 2. Pass localReviews to the backend in the POST payload
       const res = await fetch('/api/ai-studio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'evidence_accessibility',
           query,
+          localReviews, // <--- Sent to backend
         }),
       });
 
@@ -292,7 +304,7 @@ export default function EvidenceAssistant() {
                   className={`p-4 rounded-xl border cursor-pointer transition-all ${
                     isSelected
                       ? `border-[#655A7C] ring-2 ring-[#655A7C] ${cardInnerBg}`
-                      : `${cardBg} ${borderTone}`
+                      : `${cardBg}${borderTone}`
                   } space-y-1.5`}
                 >
                   <div className="flex justify-between items-start gap-3">

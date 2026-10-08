@@ -1,31 +1,39 @@
 import base64
 import io
-import re
 from typing import Dict, Any, Tuple
+
 from PIL import Image
 
-from backend.services.ai_service import gemini_service
+from backend.services.ai_provider import get_ai_provider
+
 
 class OCRService:
-    MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024 # 5 MB
+    MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
     MIN_DIMENSION = 50
 
-    def validate_and_decode_base64_image(self, b64_string: str) -> Tuple[bytes, str, Image.Image]:
+    def validate_and_decode_base64_image(
+        self,
+        b64_string: str
+    ) -> Tuple[bytes, str, Image.Image]:
         """
-        Validates, decodes, and inspects image data using Pillow.
-        Returns (raw_bytes, mime_type, PIL.Image object).
+        Validate, decode, and inspect the uploaded image.
+        Returns: (raw_bytes, mime_type, PIL.Image)
         """
         if not b64_string or not isinstance(b64_string, str):
             raise ValueError("Image data must be a non-empty string.")
 
-        # Strip data URL prefix if present
         mime_type = "image/jpeg"
+
         if "," in b64_string:
             header, encoded = b64_string.split(",", 1)
+
             if "image/png" in header:
                 mime_type = "image/png"
             elif "image/webp" in header:
                 mime_type = "image/webp"
+            elif "image/jpeg" in header or "image/jpg" in header:
+                mime_type = "image/jpeg"
+
             b64_data = encoded
         else:
             b64_data = b64_string
@@ -35,72 +43,207 @@ class OCRService:
         except Exception as e:
             raise ValueError(f"Invalid base64 payload: {str(e)}")
 
-        if len(image_bytes) == 0:
+        if not image_bytes:
             raise ValueError("Decoded image data is empty.")
 
         if len(image_bytes) > self.MAX_IMAGE_SIZE_BYTES:
-            raise ValueError(f"Image size exceeds maximum limit of {self.MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB.")
+            raise ValueError(
+                f"Image size exceeds maximum limit of "
+                f"{self.MAX_IMAGE_SIZE_BYTES // (1024 * 1024)}MB."
+            )
 
         try:
             image = Image.open(io.BytesIO(image_bytes))
-            image.verify() # Verify file integrity
-            # Reopen after verify because verify closes image
-            image = Image.open(io.BytesIO(image_bytes))
-        except Exception as e:
-            raise ValueError(f"Corrupted or unsupported image file: {str(e)}")
+            image.verify()
 
-        if image.width < self.MIN_DIMENSION or image.height < self.MIN_DIMENSION:
-            raise ValueError(f"Image dimensions ({image.width}x{image.height}) are too small for OCR analysis.")
+            image = Image.open(io.BytesIO(image_bytes))
+
+        except Exception as e:
+            raise ValueError(
+                f"Corrupted or unsupported image file: {str(e)}"
+            )
+
+        if (
+            image.width < self.MIN_DIMENSION
+            or image.height < self.MIN_DIMENSION
+        ):
+            raise ValueError(
+                f"Image dimensions ({image.width}x{image.height}) "
+                f"are too small for OCR analysis."
+            )
 
         return image_bytes, mime_type, image
 
-    async def analyze_image(self, b64_string: str, mode: str = "notice") -> Dict[str, Any]:
+    async def analyze_image(
+        self,
+        b64_string: str,
+        mode: str = "notice"
+    ) -> Dict[str, Any]:
         """
-        Processes an image. If Gemini is available, uses vision AI.
-        Otherwise uses deterministic image analysis with honest fallback disclosure.
+        Analyze any uploaded document, receipt, bill, ticket,
+        notice, form, or general image using the live vision provider.
         """
-        image_bytes, mime_type, image = self.validate_and_decode_base64_image(b64_string)
 
-        if gemini_service.is_configured():
-            prompt = (
-                f"You are SignMitra's institutional document and notice OCR reader for Deaf users in India.\n"
-                f"Analyze this image in mode '{mode}'.\n"
-                f"Extract all readable text accurately. Do not invent any text not visible in the image.\n"
-                f"Identify structured fields (e.g., token_number, counter_number, department, deadlines, instructions).\n"
-                f"Return a JSON object with keys:\n"
-                f"- extracted_text: string\n"
-                f"- detected_type: string (e.g. 'token_slip', 'office_notice', 'application_form')\n"
-                f"- structured_fields: object containing any detected tokens, counters, dates\n"
-                f"- confidence_note: string stating readability and clarity"
+        image_bytes, mime_type, image = (
+            self.validate_and_decode_base64_image(b64_string)
+        )
+
+        provider = get_ai_provider()
+
+        if not provider.is_configured():
+            return {
+                "extracted_text": "",
+                "detected_type": mode,
+                "structured_fields": {},
+                "confidence_note": "Live vision provider is not configured.",
+                "is_interpreted_by_ai": False,
+                "engine": "vision_unavailable",
+                "provenance": "vision-unavailable",
+                "live_inference_blocked": True,
+                "has_readable_text": False,
+                "disclaimer": (
+                    "Live image analysis is unavailable. "
+                    "No information was generated."
+                ),
+            }
+
+        # Keep this prompt compact because Groq vision has a strict
+        # input/output token limit on the current on-demand tier.
+        prompt = f"""
+You are SignMitra's general-purpose visual document reader.
+
+Analyze this image in mode "{mode}".
+
+The image may contain ANY visible document or printed information:
+restaurant bill, hospital bill, receipt, invoice, ticket, token slip,
+notice, form, pharmacy bill, retail receipt, utility bill, menu,
+appointment slip, or another document.
+
+Rules:
+- Extract only text/data actually visible.
+- Never guess or invent missing information.
+- Use "Not visible" for missing scalar fields.
+- Use [] for missing lists.
+- Preserve numbers, dates, times and amounts exactly.
+- Do not infer sensitive personal attributes.
+- Return JSON only.
+- Keep the response concise.
+
+Return:
+
+{{
+  "extracted_text": "Readable text in natural order",
+  "detected_type": "Best document type",
+  "structured_fields": {{
+    "business_or_organization": "Not visible",
+    "document_number": "Not visible",
+    "order_number": "Not visible",
+    "token_number": "Not visible",
+    "counter_number": "Not visible",
+    "department": "Not visible",
+    "table_number": "Not visible",
+    "cashier": "Not visible",
+    "service_type": "Not visible",
+    "dates": [],
+    "times": [],
+    "currency": "Not visible",
+    "subtotal": "Not visible",
+    "tax": "Not visible",
+    "discount": "Not visible",
+    "total_amount": "Not visible",
+    "payment_method": "Not visible",
+    "location": "Not visible",
+    "items": [],
+    "instructions": [],
+    "other_relevant_fields": {{}}
+  }},
+  "confidence_note": "Brief note about readability",
+  "image_description": "Short factual description"
+}}
+
+For each visible item, use:
+{{"name": "...", "quantity": "...", "amount": "..."}}
+
+Only include information supported by the image.
+"""
+
+        try:
+            ai_result = await provider.analyze_image(
+                image_bytes=image_bytes,
+                mime_type=mime_type,
+                prompt=prompt,
             )
-            try:
-                ai_result = await gemini_service.analyze_image_with_vision(image_bytes, mime_type, prompt)
-                return {
-                    "extracted_text": ai_result.get("extracted_text", ""),
-                    "detected_type": ai_result.get("detected_type", mode),
-                    "structured_fields": ai_result.get("structured_fields", {}),
-                    "confidence_note": ai_result.get("confidence_note", f"Analyzed using {gemini_service.provider.provider_name} Vision API"),
-                    "is_interpreted_by_ai": True,
-                    "engine": f"{gemini_service.provider.provider_name}_vision"
-                }
-            except Exception as e:
-                # If vision fails, provide clear error message
-                raise RuntimeError(f"Live Vision analysis ({gemini_service.provider.provider_name}) failed: {str(e)}")
 
-        # Fallback when no Vision AI provider is configured:
-        # Honest disclosure: we cannot invent text from an arbitrary image without an OCR engine/model.
+        except Exception as e:
+            provider_name = getattr(
+                provider,
+                "provider_name",
+                provider.__class__.__name__,
+            )
+
+            raise RuntimeError(
+                f"Live Vision analysis ({provider_name}) failed: {str(e)}"
+            )
+
+        if not isinstance(ai_result, dict):
+            raise RuntimeError(
+                "Vision provider returned an invalid response."
+            )
+
+        provider_name = getattr(
+            provider,
+            "provider_name",
+            "unknown",
+        )
+
+        extracted_text = ai_result.get(
+            "extracted_text",
+            ""
+        )
+
+        structured_fields = ai_result.get(
+            "structured_fields",
+            {}
+        )
+
+        if not isinstance(structured_fields, dict):
+            structured_fields = {}
+
+        image_description = ai_result.get(
+            "image_description",
+            ""
+        )
+
         return {
-            "extracted_text": f"[Image uploaded successfully: {image.format} {image.width}x{image.height}px]\n"
-                              f"Note: Optical character recognition requires a vision provider key (GROQ_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY) in backend/.env.",
-            "detected_type": mode,
-            "structured_fields": {
-                "dimensions": f"{image.width}x{image.height}",
-                "format": image.format,
-                "status": "Vision Provider Unconfigured"
+            "extracted_text": extracted_text,
+            "detected_type": ai_result.get(
+                "detected_type",
+                mode
+            ),
+            "structured_fields": structured_fields,
+            "confidence_note": ai_result.get(
+                "confidence_note",
+                f"Analyzed using {provider_name} Vision."
+            ),
+            "is_interpreted_by_ai": True,
+            "engine": f"{provider_name}_vision",
+            "provenance": f"{provider_name}_vision",
+            "live_inference_blocked": False,
+            "validation_details": {
+                "image_format": image.format,
+                "width": image.width,
+                "height": image.height,
             },
-            "confidence_note": "Image passed Pillow validation. To enable full character reading, provide a Vision API key in backend/.env.",
-            "is_interpreted_by_ai": False,
-            "engine": "image_validator_offline"
+            "has_readable_text": bool(
+                isinstance(extracted_text, str)
+                and extracted_text.strip()
+            ),
+            "disclaimer": (
+                "Information was extracted from the uploaded image "
+                "using live AI vision. Unclear information is not inferred."
+            ),
+            "image_description": image_description,
         }
+
 
 ocr_service = OCRService()

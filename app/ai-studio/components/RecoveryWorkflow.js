@@ -67,6 +67,8 @@ export default function RecoveryWorkflow({
     'Visual Cards + Written Replies'
   );
 
+  const [prefTextSize, setPrefTextSize] = useState('Large');
+
   // STEP 2: PREPARE
   const [copilotPlan, setCopilotPlan] = useState(null);
   const [approvedPlan, setApprovedPlan] = useState(false);
@@ -151,8 +153,8 @@ export default function RecoveryWorkflow({
     if (!response.ok) {
       throw new Error(
         data?.error ||
-          data?.message ||
-          `Request failed with status ${response.status}.`
+        data?.message ||
+        `Request failed with status ${response.status}.`
       );
     }
 
@@ -227,6 +229,32 @@ export default function RecoveryWorkflow({
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('signmitra_pref_comm_mode');
+      const savedTextSize = localStorage.getItem('signmitra_pref_text_size');
+
+      // Map Settings preference → Recovery Workflow preference
+      if (savedMode === 'Visual Cards') {
+        setPrefMode('Visual Cards + Written Replies');
+      } else if (savedMode === 'Plain Text') {
+        setPrefMode('Step-by-Step Written Breakdown');
+      } else if (savedMode === 'Spoken Audio') {
+        setPrefMode('Large Captions + Spoken Output');
+      }
+
+      if (
+        savedTextSize === 'Normal' ||
+        savedTextSize === 'Large' ||
+        savedTextSize === 'Extra Large'
+      ) {
+        setPrefTextSize(savedTextSize);
+      }
+    } catch (error) {
+      console.error('Failed to load SignMitra communication preferences:', error);
+    }
+  }, []);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const SpeechRecognition =
@@ -292,7 +320,7 @@ export default function RecoveryWorkflow({
     return () => {
       try {
         recognizer.stop();
-      } catch {}
+      } catch { }
 
       recognizer.onresult = null;
       recognizer.onerror = null;
@@ -328,6 +356,7 @@ export default function RecoveryWorkflow({
     if (
       typeof window === 'undefined' ||
       !('speechSynthesis' in window) ||
+      !('SpeechSynthesisUtterance' in window) ||
       !text
     ) {
       return;
@@ -339,9 +368,38 @@ export default function RecoveryWorkflow({
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.95;
 
+      const savedVoiceUri = localStorage.getItem(
+        'signmitra_preferred_voice'
+      );
+
+      const availableVoices = window.speechSynthesis.getVoices();
+
+      const selectedVoice = availableVoices.find(
+        (voice) => voice.voiceURI === savedVoiceUri
+      );
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        utterance.lang = selectedVoice.lang;
+      }
+
       window.speechSynthesis.speak(utterance);
     } catch (error) {
       console.error('Speech synthesis error:', error);
+    }
+  };
+
+  const getCommunicationTextSizeClass = () => {
+    switch (prefTextSize) {
+      case 'Normal':
+        return 'text-2xl sm:text-4xl';
+
+      case 'Extra Large':
+        return 'text-4xl sm:text-7xl';
+
+      case 'Large':
+      default:
+        return 'text-3xl sm:text-6xl';
     }
   };
 
@@ -362,7 +420,7 @@ export default function RecoveryWorkflow({
     if (isRecording) {
       try {
         recognitionRef.current.stop();
-      } catch {}
+      } catch { }
 
       setIsRecording(false);
       return;
@@ -422,7 +480,7 @@ export default function RecoveryWorkflow({
 
       showError(
         error?.message ||
-          'Failed to generate the preparation plan. Please check connectivity and retry.'
+        'Failed to generate the preparation plan. Please check connectivity and retry.'
       );
     } finally {
       setIsProcessing(false);
@@ -511,8 +569,8 @@ export default function RecoveryWorkflow({
         explainData?.keyDetails?.documentsNeeded
       )
         ? explainData.keyDetails.documentsNeeded
-            .filter(Boolean)
-            .join(', ')
+          .filter(Boolean)
+          .join(', ')
         : '';
 
       const actionValue = normalizeValue(
@@ -552,7 +610,7 @@ export default function RecoveryWorkflow({
 
       showError(
         error?.message ||
-          'The response could not be analyzed. Please retry.'
+        'The response could not be analyzed. Please retry.'
       );
     } finally {
       setIsProcessing(false);
@@ -582,9 +640,9 @@ export default function RecoveryWorkflow({
           specificGap:
             gaps.length > 0
               ? gaps
-                  .map((gap) => gap?.issue)
-                  .filter(Boolean)
-                  .join('; ')
+                .map((gap) => gap?.issue)
+                .filter(Boolean)
+                .join('; ')
               : 'No critical gap was detected. Generate only if a useful confirmation question is appropriate.'
         })
       });
@@ -609,7 +667,7 @@ export default function RecoveryWorkflow({
 
       showError(
         error?.message ||
-          'Failed to generate clarification cards.'
+        'Failed to generate clarification cards.'
       );
     } finally {
       setIsProcessing(false);
@@ -625,9 +683,9 @@ export default function RecoveryWorkflow({
       previous.map((item, itemIndex) =>
         itemIndex === index
           ? {
-              ...item,
-              ...changes
-            }
+            ...item,
+            ...changes
+          }
           : item
       )
     );
@@ -671,7 +729,7 @@ export default function RecoveryWorkflow({
 
     const explicitDates =
       explicitDeadline?.status === 'confirmed' &&
-      explicitDeadline?.value?.trim()
+        explicitDeadline?.value?.trim()
         ? [explicitDeadline.value.trim()]
         : [];
 
@@ -713,14 +771,14 @@ export default function RecoveryWorkflow({
     const category = context.includes('Hospital')
       ? 'Healthcare'
       : context.includes('Bank')
-      ? 'Banking & Finance'
-      : context.includes('College')
-      ? 'Education'
-      : context.includes('Government')
-      ? 'Government'
-      : context.includes('Transit')
-      ? 'Travel'
-      : 'Personal';
+        ? 'Banking & Finance'
+        : context.includes('College')
+          ? 'Education'
+          : context.includes('Government')
+            ? 'Government'
+            : context.includes('Transit')
+              ? 'Travel'
+              : 'Personal';
 
     if (nextAction) {
       setTasksToSchedule([
@@ -1031,13 +1089,12 @@ export default function RecoveryWorkflow({
                   isCompleted && setCurrentStep(stepNum)
                 }
                 disabled={!isCompleted && !isCurrent}
-                className={`flex items-center gap-1.5 py-1 px-2 rounded-lg font-bold transition-all ${
-                  isCurrent
-                    ? accentSolid
-                    : isCompleted
+                className={`flex items-center gap-1.5 py-1 px-2 rounded-lg font-bold transition-all ${isCurrent
+                  ? accentSolid
+                  : isCompleted
                     ? 'text-green-600 dark:text-green-400 cursor-pointer hover:opacity-80'
                     : 'opacity-40 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 <span>{isCompleted ? '✓' : stepNum}</span>
                 <span className="hidden sm:inline">
@@ -1175,11 +1232,10 @@ export default function RecoveryWorkflow({
             type="button"
             onClick={handleGeneratePlan}
             disabled={!goal.trim() || isProcessing}
-            className={`w-full py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-sm flex items-center justify-center gap-2 transition-all ${
-              goal.trim() && !isProcessing
-                ? `${accentSolid} hover:opacity-90`
-                : `opacity-40 cursor-not-allowed border ${borderTone}`
-            }`}
+            className={`w-full py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-sm flex items-center justify-center gap-2 transition-all ${goal.trim() && !isProcessing
+              ? `${accentSolid} hover:opacity-90`
+              : `opacity-40 cursor-not-allowed border ${borderTone}`
+              }`}
           >
             {isProcessing ? (
               <RefreshCcw className="w-4 h-4 animate-spin" />
@@ -1262,7 +1318,7 @@ export default function RecoveryWorkflow({
                     </span>
 
                     <span className="text-xs font-bold">
-                      {item?.task || 'Preparation item'}
+                      {item?.text || 'Preparation item'}
                     </span>
                   </div>
                 ))}
@@ -1276,25 +1332,29 @@ export default function RecoveryWorkflow({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {Array.isArray(copilotPlan.suggestedCards) &&
-                copilotPlan.suggestedCards.map(
-                  (card, index) => (
-                    <div
-                      key={`${card}-${index}`}
-                      className={`p-3 rounded-xl border flex items-center justify-between text-xs font-bold ${cardInnerBg} ${borderTone}`}
-                    >
-                      <span>"{card}"</span>
+                copilotPlan.suggestedCards.map((card, index) => (
+                  <div
+                    key={card?.id || `card-${index}`}
+                    className={`p-3 rounded-xl border flex items-center justify-between text-xs font-bold ${cardInnerBg} ${borderTone}`}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-mono uppercase opacity-60">
+                        {card?.title || 'Communication Card'}
+                      </span>
 
-                      <button
-                        type="button"
-                        onClick={() => speakText(card)}
-                        className="p-1 rounded opacity-60 hover:opacity-100"
-                        title="Speak"
-                      >
-                        <Volume2 className="w-3.5 h-3.5" />
-                      </button>
+                      <span>"{card?.text || 'Communication message unavailable.'}"</span>
                     </div>
-                  )
-                )}
+
+                    <button
+                      type="button"
+                      onClick={() => speakText(card?.text || '')}
+                      className="p-1 rounded opacity-60 hover:opacity-100"
+                      title="Speak"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
             </div>
           </div>
 
@@ -1402,11 +1462,10 @@ export default function RecoveryWorkflow({
               <button
                 type="button"
                 onClick={toggleRecording}
-                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold uppercase flex items-center gap-1.5 transition-all ${
-                  isRecording
-                    ? 'bg-red-600 text-white animate-pulse'
-                    : `${cardInnerBg} border ${borderTone} hover:border-[#655A7C]`
-                }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold uppercase flex items-center gap-1.5 transition-all ${isRecording
+                  ? 'bg-red-600 text-white animate-pulse'
+                  : `${cardInnerBg} border ${borderTone} hover:border-[#655A7C]`
+                  }`}
               >
                 {isRecording ? (
                   <MicOff className="w-3.5 h-3.5" />
@@ -1498,11 +1557,10 @@ export default function RecoveryWorkflow({
               type="button"
               onClick={handleAnalyzeCaptured}
               disabled={!capturedText.trim() || isProcessing}
-              className={`flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-sm flex items-center justify-center gap-2 ${
-                capturedText.trim() && !isProcessing
-                  ? `${accentSolid} hover:opacity-90`
-                  : `opacity-40 cursor-not-allowed border ${borderTone}`
-              }`}
+              className={`flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-sm flex items-center justify-center gap-2 ${capturedText.trim() && !isProcessing
+                ? `${accentSolid} hover:opacity-90`
+                : `opacity-40 cursor-not-allowed border ${borderTone}`
+                }`}
             >
               {isProcessing ? (
                 <RefreshCcw className="w-4 h-4 animate-spin" />
@@ -1718,11 +1776,10 @@ export default function RecoveryWorkflow({
               type="button"
               onClick={handleGenerateClarifications}
               disabled={isProcessing}
-              className={`flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-sm flex items-center justify-center gap-2 ${
-                isProcessing
-                  ? 'opacity-50 cursor-not-allowed'
-                  : `${accentSolid} hover:opacity-90`
-              }`}
+              className={`flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-sm flex items-center justify-center gap-2 ${isProcessing
+                ? 'opacity-50 cursor-not-allowed'
+                : `${accentSolid} hover:opacity-90`
+                }`}
             >
               {isProcessing && (
                 <RefreshCcw className="w-4 h-4 animate-spin" />
@@ -1781,11 +1838,10 @@ export default function RecoveryWorkflow({
               {clarificationCards.map((card, index) => (
                 <div
                   key={card?.id || index}
-                  className={`p-4 rounded-xl border transition-all ${
-                    selectedClarification === card?.questionCard
-                      ? `ring-2 ring-[#655A7C] ${cardInnerBg}`
-                      : `${cardInnerBg} ${borderTone}`
-                  } space-y-3`}
+                  className={`p-4 rounded-xl border transition-all ${selectedClarification === card?.questionCard
+                    ? `ring-2 ring-[#655A7C] ${cardInnerBg}`
+                    : `${cardInnerBg} ${borderTone}`
+                    } space-y-3`}
                 >
                   <div className="flex justify-between items-center gap-2 text-xs font-mono font-bold">
                     <span className="opacity-70">
@@ -1923,11 +1979,10 @@ export default function RecoveryWorkflow({
                           status: 'confirmed'
                         })
                       }
-                      className={`px-2.5 py-1 rounded font-bold transition-all ${
-                        item.status === 'confirmed'
-                          ? 'bg-green-600 text-white'
-                          : `${cardBg} border ${borderTone}`
-                      }`}
+                      className={`px-2.5 py-1 rounded font-bold transition-all ${item.status === 'confirmed'
+                        ? 'bg-green-600 text-white'
+                        : `${cardBg} border ${borderTone}`
+                        }`}
                     >
                       ✓ Confirmed
                     </button>
@@ -1939,11 +1994,10 @@ export default function RecoveryWorkflow({
                           status: 'unclear'
                         })
                       }
-                      className={`px-2.5 py-1 rounded font-bold transition-all ${
-                        item.status === 'unclear'
-                          ? 'bg-orange-500 text-white'
-                          : `${cardBg} border ${borderTone}`
-                      }`}
+                      className={`px-2.5 py-1 rounded font-bold transition-all ${item.status === 'unclear'
+                        ? 'bg-orange-500 text-white'
+                        : `${cardBg} border ${borderTone}`
+                        }`}
                     >
                       ⚠️ Still Unclear
                     </button>
@@ -1955,11 +2009,10 @@ export default function RecoveryWorkflow({
                           status: 'na'
                         })
                       }
-                      className={`px-2.5 py-1 rounded font-bold transition-all ${
-                        item.status === 'na'
-                          ? accentSolid
-                          : `${cardBg} border ${borderTone}`
-                      }`}
+                      className={`px-2.5 py-1 rounded font-bold transition-all ${item.status === 'na'
+                        ? accentSolid
+                        : `${cardBg} border ${borderTone}`
+                        }`}
                     >
                       N/A
                     </button>
@@ -2330,13 +2383,14 @@ export default function RecoveryWorkflow({
 
           <div className="text-center my-auto px-4 max-w-4xl mx-auto w-full">
             <div
-              className={`py-12 sm:py-24 px-8 rounded-3xl border-8 ${
-                isDarkTheme
-                  ? 'border-[#FDF1E2] bg-[#AB92BF]/10'
-                  : 'border-[#655A7C] bg-[#655A7C]/5'
-              } shadow-2xl`}
+              className={`py-12 sm:py-24 px-8 rounded-3xl border-8 ${isDarkTheme
+                ? 'border-[#FDF1E2] bg-[#AB92BF]/10'
+                : 'border-[#655A7C] bg-[#655A7C]/5'
+                } shadow-2xl`}
             >
-              <p className="text-3xl sm:text-6xl font-black tracking-tight leading-tight">
+              <p
+                className={`${getCommunicationTextSizeClass()} font-black tracking-tight leading-tight`}
+              >
                 "{fullscreenCard}"
               </p>
             </div>

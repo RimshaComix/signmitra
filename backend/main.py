@@ -43,6 +43,24 @@ Base.metadata.create_all(bind=engine)
 
 
 # ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+
+def first_visible(*values):
+    for value in values:
+        if value not in (
+            None,
+            "",
+            "Not visible",
+            "N/A",
+            "Unknown",
+        ):
+            return value
+
+    return "Not visible"
+
+
+# ============================================================
 # APPLICATION LIFESPAN
 # ============================================================
 
@@ -146,14 +164,6 @@ app.include_router(isl.router, prefix="/api")
 # ============================================================
 # ROOT-LEVEL ISL RECOGNITION ENDPOINTS
 # ============================================================
-
-# Allows:
-# ISL_PYTHON_API=http://127.0.0.1:8000
-#
-# to work whether running:
-# backend.main:app
-# or:
-# backend.isl.app:app
 
 from backend.isl.app import (
     get_isl_health_payload,
@@ -847,6 +857,10 @@ async def ai_studio_action_dispatcher(payload: dict):
             or data.get("imageBase64")
         )
 
+        # ----------------------------------------------------
+        # DETERMINISTIC SAMPLE
+        # ----------------------------------------------------
+
         if not raw_b64:
 
             if data.get("sampleType") == "token":
@@ -889,6 +903,10 @@ async def ai_studio_action_dispatcher(payload: dict):
                 },
             )
 
+        # ----------------------------------------------------
+        # REAL IMAGE
+        # ----------------------------------------------------
+
         req = VisionAnalyzeRequest(
             image_base64=raw_b64,
             mode=(
@@ -902,6 +920,10 @@ async def ai_studio_action_dispatcher(payload: dict):
             res = await vision.analyze_vision(req)
 
             dump = res.model_dump()
+
+            # ------------------------------------------------
+            # FRONTEND COMPATIBILITY FIELDS
+            # ------------------------------------------------
 
             dump["extractedText"] = dump.get(
                 "extracted_text",
@@ -935,38 +957,420 @@ async def ai_studio_action_dispatcher(payload: dict):
                 "disclaimer"
             )
 
-            # Map structured fields only when actually
-            # produced by AI. Never invent structured details.
+            # ------------------------------------------------
+            # PROVIDER / PROVENANCE NORMALIZATION
+            # ------------------------------------------------
+
+            provider = (
+                dump.get("provenance")
+                or dump.get("engine")
+                or ""
+            )
+
+            if provider:
+                dump["provider"] = provider
+
+            # ------------------------------------------------
+            # STRUCTURED AI FIELDS
+            # ------------------------------------------------
+
             sf = dump.get(
                 "structured_fields",
                 {},
             )
 
-            if dump.get(
-                "is_interpreted_by_ai"
-            ) and sf:
+            if (
+                dump.get("is_interpreted_by_ai")
+                and isinstance(sf, dict)
+            ):
+
+                # --------------------------------------------
+                # COMPLETE GENERIC DOCUMENT DATA
+                # --------------------------------------------
+
+                dump["documentDetails"] = sf
+                dump["genericDocumentDetails"] = sf
+
+                # --------------------------------------------
+                # DOCUMENT CATEGORY
+                # --------------------------------------------
+
+                document_category = first_visible(
+                    sf.get("document_category"),
+                    sf.get("documentCategory"),
+                )
+
+                dump["documentCategory"] = document_category
+
+                # --------------------------------------------
+                # BUSINESS / ORGANIZATION
+                # --------------------------------------------
+
+                dump["businessName"] = first_visible(
+                    sf.get("business_name"),
+                    sf.get("businessName"),
+                )
+
+                # --------------------------------------------
+                # DOCUMENT NUMBERS
+                # --------------------------------------------
+
+                dump["documentNumber"] = first_visible(
+                    sf.get("document_number"),
+                    sf.get("documentNumber"),
+                )
+
+                dump["billNumber"] = first_visible(
+                    sf.get("bill_number"),
+                    sf.get("billNumber"),
+                )
+
+                dump["invoiceNumber"] = first_visible(
+                    sf.get("invoice_number"),
+                    sf.get("invoiceNumber"),
+                )
+
+                dump["orderNumber"] = first_visible(
+                    sf.get("order_number"),
+                    sf.get("orderNumber"),
+                )
+
+                # --------------------------------------------
+                # QUEUE / LOCATION / SERVICE FIELDS
+                # --------------------------------------------
+
+                token_number = first_visible(
+                    sf.get("tokenNumber"),
+                    sf.get("token_number"),
+                )
+
+                counter_number = first_visible(
+                    sf.get("counterNumber"),
+                    sf.get("counter_number"),
+                )
+
+                department = first_visible(
+                    sf.get("department"),
+                    sf.get("departmentName"),
+                    sf.get("department_name"),
+                )
+
+                cashier = first_visible(
+                    sf.get("cashier"),
+                    sf.get("cashierName"),
+                    sf.get("cashier_name"),
+                )
+
+                table_number = first_visible(
+                    sf.get("tableNumber"),
+                    sf.get("table_number"),
+                )
+
+                room_number = first_visible(
+                    sf.get("roomNumber"),
+                    sf.get("room_number"),
+                    sf.get("room"),
+                )
+
+                service_type = first_visible(
+                    sf.get("serviceType"),
+                    sf.get("service_type"),
+                )
+
+                dump["tokenNumber"] = token_number
+                dump["counterNumber"] = counter_number
+                dump["department"] = department
+                dump["cashier"] = cashier
+                dump["tableNumber"] = table_number
+                dump["roomNumber"] = room_number
+                dump["serviceType"] = service_type
+
+                # --------------------------------------------
+                # PEOPLE / ROLE FIELDS
+                # --------------------------------------------
+
+                dump["customerName"] = first_visible(
+                    sf.get("customer_name"),
+                    sf.get("customerName"),
+                )
+
+                dump["patientName"] = first_visible(
+                    sf.get("patient_name"),
+                    sf.get("patientName"),
+                )
+
+                dump["doctorName"] = first_visible(
+                    sf.get("doctor_name"),
+                    sf.get("doctorName"),
+                )
+
+                # --------------------------------------------
+                # DATE / TIME
+                # --------------------------------------------
+
+                dates = sf.get("dates") or []
+                times = sf.get("times") or []
+
+                date_time = first_visible(
+                    sf.get("dateTime"),
+                    sf.get("date_time"),
+                )
+
+                if date_time == "Not visible":
+
+                    date_parts = [
+                        str(value)
+                        for value in dates
+                        if value not in (
+                            None,
+                            "",
+                            "Not visible",
+                            "N/A",
+                            "Unknown",
+                        )
+                    ]
+
+                    time_parts = [
+                        str(value)
+                        for value in times
+                        if value not in (
+                            None,
+                            "",
+                            "Not visible",
+                            "N/A",
+                            "Unknown",
+                        )
+                    ]
+
+                    combined = " ".join(
+                        date_parts + time_parts
+                    ).strip()
+
+                    if combined:
+                        date_time = combined
+
+                dump["dateTime"] = date_time
+                dump["dates"] = dates
+                dump["times"] = times
+
+                # --------------------------------------------
+                # FINANCIAL INFORMATION
+                # --------------------------------------------
+
+                dump["currency"] = first_visible(
+                    sf.get("currency"),
+                )
+
+                dump["subtotal"] = first_visible(
+                    sf.get("subtotal"),
+                )
+
+                dump["tax"] = first_visible(
+                    sf.get("tax"),
+                )
+
+                dump["discount"] = first_visible(
+                    sf.get("discount"),
+                )
+
+                dump["totalAmount"] = first_visible(
+                    sf.get("total_amount"),
+                    sf.get("totalAmount"),
+                    sf.get("total"),
+                )
+
+                dump["paymentMethod"] = first_visible(
+                    sf.get("payment_method"),
+                    sf.get("paymentMethod"),
+                )
+
+                # --------------------------------------------
+                # ITEMS
+                # --------------------------------------------
+
+                items = sf.get("items")
+
+                if not isinstance(items, list):
+                    items = []
+
+                dump["items"] = items
+
+                # --------------------------------------------
+                # CONTACT / ADDRESS
+                # --------------------------------------------
+
+                phone_numbers = sf.get("phone_numbers")
+
+                if not isinstance(phone_numbers, list):
+                    phone_numbers = []
+
+                addresses = sf.get("addresses")
+
+                if not isinstance(addresses, list):
+                    addresses = []
+
+                dump["phoneNumbers"] = phone_numbers
+                dump["addresses"] = addresses
+
+                # --------------------------------------------
+                # DEADLINES / INSTRUCTIONS
+                # --------------------------------------------
+
+                deadlines = sf.get("deadlines") or []
+                instructions = sf.get("instructions") or []
+
+                if not isinstance(deadlines, list):
+                    deadlines = [str(deadlines)]
+
+                if not isinstance(instructions, list):
+                    instructions = [str(instructions)]
+
+                dump["deadlines"] = deadlines
+                dump["instructions"] = instructions
+
+                # --------------------------------------------
+                # OTHER RELEVANT FIELDS
+                # --------------------------------------------
+
+                other_fields = sf.get(
+                    "other_relevant_fields",
+                    sf.get(
+                        "otherRelevantFields",
+                        {},
+                    ),
+                )
+
+                if not isinstance(other_fields, dict):
+                    other_fields = {}
+
+                dump["otherRelevantFields"] = other_fields
+
+                # --------------------------------------------
+                # QUEUE & TOKEN READER COMPATIBILITY
+                #
+                # Only expose queueDetails when the image
+                # actually contains queue/token-related data.
+                #
+                # A normal date, time, instruction, restaurant
+                # bill, receipt, or invoice must NOT become
+                # queue information.
+                # --------------------------------------------
+
+                document_type_text = str(
+                    dump.get("detected_type", "")
+                ).lower()
+
+                document_category_text = str(
+                    document_category
+                ).lower()
+
+                queue_keywords = (
+                    "token",
+                    "queue",
+                    "appointment",
+                    "opd",
+                    "waiting",
+                    "counter",
+                )
+
+                is_queue_document = any(
+                    keyword in document_type_text
+                    or keyword in document_category_text
+                    for keyword in queue_keywords
+                )
+
+                has_explicit_queue_fields = any(
+                    [
+                        token_number != "Not visible",
+                        counter_number != "Not visible",
+                    ]
+                )
+
+                has_queue_data = (
+                    is_queue_document
+                    and has_explicit_queue_fields
+                )
 
                 dump["queueDetails"] = (
-                    sf.get("queue_details")
-                    or (
-                        sf
-                        if sf.get("tokenNumber")
-                        else None
-                    )
+                    {
+                        "tokenNumber": token_number,
+                        "counterNumber": counter_number,
+                        "dateTime": date_time,
+                        "instructions": (
+                            "; ".join(
+                                str(item)
+                                for item in instructions
+                                if item not in (
+                                    None,
+                                    "",
+                                    "Not visible",
+                                )
+                            )
+                            or "Not visible"
+                        ),
+                    }
+                    if has_queue_data
+                    else None
                 )
 
-                dump["documentBreakdown"] = (
-                    sf.get("document_breakdown")
-                    or (
-                        sf
-                        if sf.get("plainSummary")
-                        else None
-                    )
+                # --------------------------------------------
+                # DOCUMENT / NOTICE READER COMPATIBILITY
+                # --------------------------------------------
+
+                document_breakdown = (
+                    sf.get("documentBreakdown")
+                    or sf.get("document_breakdown")
                 )
+
+                if isinstance(
+                    document_breakdown,
+                    dict,
+                ):
+                    dump["documentBreakdown"] = {
+                        "plainSummary": (
+                            document_breakdown.get(
+                                "plainSummary"
+                            )
+                            or document_breakdown.get(
+                                "plain_summary"
+                            )
+                            or ""
+                        ),
+                        "keyDates": (
+                            document_breakdown.get(
+                                "keyDates"
+                            )
+                            or document_breakdown.get(
+                                "key_dates"
+                            )
+                            or dates
+                            or []
+                        ),
+                        "amounts": (
+                            document_breakdown.get(
+                                "amounts"
+                            )
+                            or []
+                        ),
+                        "actionItems": (
+                            document_breakdown.get(
+                                "actionItems"
+                            )
+                            or document_breakdown.get(
+                                "action_items"
+                            )
+                            or instructions
+                            or []
+                        ),
+                    }
+                else:
+                    dump["documentBreakdown"] = None
 
             else:
                 dump["queueDetails"] = None
                 dump["documentBreakdown"] = None
+                dump["documentDetails"] = {}
+                dump["genericDocumentDetails"] = {}
 
             return dump
 
@@ -977,6 +1381,10 @@ async def ai_studio_action_dispatcher(payload: dict):
             )
 
         except Exception as e:
+            logger.exception(
+                "Image processing error"
+            )
+
             return JSONResponse(
                 status_code=500,
                 content={
@@ -1049,11 +1457,7 @@ async def ai_studio_action_dispatcher(payload: dict):
                                 ),
                             },
                             "writtenSupport": {
-                                "status": (
-                                    "yes"
-                                    if r.written_communication_desk
-                                    else "no"
-                                ),
+                                "status": "yes",
                                 "text": (
                                     "Written support desk available"
                                 ),

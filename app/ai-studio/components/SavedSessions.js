@@ -12,7 +12,8 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  MessageSquare
 } from 'lucide-react';
 
 export default function SavedSessions({ onReopenSession }) {
@@ -30,9 +31,9 @@ export default function SavedSessions({ onReopenSession }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState(null);
 
-  useEffect(() => {
-    loadSessions();
-  }, []);
+  /* ---------------------------------------------------------
+     LOAD SAVED SESSIONS
+  --------------------------------------------------------- */
 
   const loadSessions = () => {
     try {
@@ -47,6 +48,30 @@ export default function SavedSessions({ onReopenSession }) {
     }
   };
 
+  useEffect(() => {
+    loadSessions();
+
+    const handleSessionsUpdated = () => {
+      loadSessions();
+    };
+
+    window.addEventListener(
+      'signmitra:sessions-updated',
+      handleSessionsUpdated
+    );
+
+    return () => {
+      window.removeEventListener(
+        'signmitra:sessions-updated',
+        handleSessionsUpdated
+      );
+    };
+  }, []);
+
+  /* ---------------------------------------------------------
+     DELETE ONE SESSION
+  --------------------------------------------------------- */
+
   const deleteSession = (id) => {
     if (
       !window.confirm(
@@ -57,23 +82,33 @@ export default function SavedSessions({ onReopenSession }) {
     }
 
     try {
-      const updated = sessions.filter((session) => session.id !== id);
-
-      setSessions(updated);
+      const updated = sessions.filter(
+        (session) => session.id !== id
+      );
 
       localStorage.setItem(
         'signmitra_ai_sessions',
         JSON.stringify(updated)
       );
 
+      setSessions(updated);
+
       if (expandedId === id) {
         setExpandedId(null);
       }
+
+      window.dispatchEvent(
+        new Event('signmitra:sessions-updated')
+      );
     } catch (error) {
       console.error('Failed to delete session:', error);
       alert('Unable to delete this session.');
     }
   };
+
+  /* ---------------------------------------------------------
+     CLEAR ALL
+  --------------------------------------------------------- */
 
   const clearAllSessions = () => {
     if (
@@ -86,13 +121,22 @@ export default function SavedSessions({ onReopenSession }) {
 
     try {
       localStorage.removeItem('signmitra_ai_sessions');
+
       setSessions([]);
       setExpandedId(null);
+
+      window.dispatchEvent(
+        new Event('signmitra:sessions-updated')
+      );
     } catch (error) {
       console.error('Failed to clear sessions:', error);
       alert('Unable to clear saved sessions.');
     }
   };
+
+  /* ---------------------------------------------------------
+     REOPEN SESSION
+  --------------------------------------------------------- */
 
   const reopenSession = (session) => {
     if (typeof onReopenSession !== 'function') {
@@ -102,32 +146,78 @@ export default function SavedSessions({ onReopenSession }) {
     onReopenSession(session);
   };
 
+  /* ---------------------------------------------------------
+     SEARCH / FILTER
+  --------------------------------------------------------- */
+
   const filteredSessions = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     return sessions.filter((session) => {
-      const context = session.context?.toLowerCase() || '';
-      const goal = session.goal?.toLowerCase() || '';
-      const institution = session.institution?.toLowerCase() || '';
-      const capturedText = session.capturedText?.toLowerCase() || '';
+      const context =
+        session.context?.toLowerCase() || '';
+
+      const goal =
+        session.goal?.toLowerCase() || '';
+
+      const institution =
+        session.institution?.toLowerCase() || '';
+
+      const capturedText =
+        session.capturedText?.toLowerCase() || '';
+
+      const messagesText = Array.isArray(session.messages)
+        ? session.messages
+            .map((message) => message?.text || '')
+            .join(' ')
+            .toLowerCase()
+        : '';
+
+      const confirmedFactsText = Array.isArray(
+        session.confirmedFacts
+      )
+        ? session.confirmedFacts
+            .join(' ')
+            .toLowerCase()
+        : '';
+
+      const unresolvedQuestionsText = Array.isArray(
+        session.unresolvedQuestions
+      )
+        ? session.unresolvedQuestions
+            .join(' ')
+            .toLowerCase()
+        : '';
+
+      const searchableText = [
+        goal,
+        institution,
+        context,
+        capturedText,
+        messagesText,
+        confirmedFactsText,
+        unresolvedQuestionsText
+      ].join(' ');
 
       const matchesContext =
         filterContext === 'All' ||
         context.includes(filterContext.toLowerCase());
 
       const matchesQuery =
-        !query ||
-        goal.includes(query) ||
-        institution.includes(query) ||
-        context.includes(query) ||
-        capturedText.includes(query);
+        !query || searchableText.includes(query);
 
       return matchesContext && matchesQuery;
     });
   }, [sessions, filterContext, searchQuery]);
 
+  /* ---------------------------------------------------------
+     DATE / TIME
+  --------------------------------------------------------- */
+
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'Date unavailable';
+    if (!timestamp) {
+      return 'Date unavailable';
+    }
 
     const date = new Date(timestamp);
 
@@ -139,7 +229,9 @@ export default function SavedSessions({ onReopenSession }) {
   };
 
   const formatTime = (timestamp) => {
-    if (!timestamp) return '';
+    if (!timestamp) {
+      return '';
+    }
 
     const date = new Date(timestamp);
 
@@ -152,6 +244,10 @@ export default function SavedSessions({ onReopenSession }) {
       minute: '2-digit'
     });
   };
+
+  /* ---------------------------------------------------------
+     SESSION STATUS
+  --------------------------------------------------------- */
 
   const getSessionStatus = (session) => {
     if (session.savedTasks?.length > 0) {
@@ -168,12 +264,16 @@ export default function SavedSessions({ onReopenSession }) {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
 
-      {/* HEADER */}
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
       <div
         className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm`}
       >
         <div>
           <div className="flex flex-wrap items-center gap-2">
+
             <span
               className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${accentSolid}`}
             >
@@ -184,15 +284,19 @@ export default function SavedSessions({ onReopenSession }) {
               <History className="w-3.5 h-3.5" />
               Local Storage Ledger
             </span>
+
           </div>
 
           <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight mt-1">
             Saved AI Sessions & Summaries
           </h2>
 
-          <p className={`text-xs sm:text-sm font-medium ${textSecondary}`}>
-            Review confirmed interaction details, unresolved items, and
-            follow-up actions from previous sessions.
+          <p
+            className={`text-xs sm:text-sm font-medium ${textSecondary}`}
+          >
+            Review complete conversation transcripts, confirmed
+            interaction details, unresolved items, and follow-up
+            actions from previous sessions.
           </p>
         </div>
 
@@ -207,8 +311,12 @@ export default function SavedSessions({ onReopenSession }) {
         )}
       </div>
 
-      {/* SEARCH + FILTER */}
+      {/* =====================================================
+          SEARCH + FILTER
+      ===================================================== */}
+
       <div className="flex flex-col sm:flex-row gap-3">
+
         <div
           className={`flex-1 flex items-center px-4 py-2.5 rounded-xl border-2 ${borderTone} ${cardBg}`}
         >
@@ -217,15 +325,19 @@ export default function SavedSessions({ onReopenSession }) {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by goal, institution, context, or captured text..."
+            onChange={(e) =>
+              setSearchQuery(e.target.value)
+            }
+            placeholder="Search sessions, transcript, context, goal, or captured text..."
             className="w-full bg-transparent outline-none text-xs font-bold"
           />
         </div>
 
         <select
           value={filterContext}
-          onChange={(e) => setFilterContext(e.target.value)}
+          onChange={(e) =>
+            setFilterContext(e.target.value)
+          }
           className={`p-2.5 rounded-xl font-bold border-2 text-xs outline-none ${cardBg} ${borderTone}`}
         >
           <option value="All">All Contexts</option>
@@ -236,11 +348,16 @@ export default function SavedSessions({ onReopenSession }) {
           <option value="Government">Government Office</option>
           <option value="General">General Interaction</option>
         </select>
+
       </div>
 
-      {/* RESULT COUNT */}
+      {/* =====================================================
+          RESULT COUNT
+      ===================================================== */}
+
       {sessions.length > 0 && (
         <div className="flex items-center justify-between px-1">
+
           <span className="text-[10px] font-mono font-bold uppercase opacity-50">
             {filteredSessions.length} of {sessions.length} sessions
           </span>
@@ -256,11 +373,16 @@ export default function SavedSessions({ onReopenSession }) {
               Clear Filters
             </button>
           )}
+
         </div>
       )}
 
-      {/* EMPTY STATE */}
+      {/* =====================================================
+          EMPTY STATE
+      ===================================================== */}
+
       {filteredSessions.length === 0 ? (
+
         <div
           className={`p-12 rounded-2xl border-2 border-dashed ${borderTone} ${cardInnerBg} text-center space-y-3`}
         >
@@ -272,34 +394,57 @@ export default function SavedSessions({ onReopenSession }) {
               : 'No Saved Sessions Found'}
           </h3>
 
-          <p className={`text-xs font-mono ${textSecondary}`}>
+          <p
+            className={`text-xs font-mono ${textSecondary}`}
+          >
             {sessions.length > 0
               ? 'Try changing the search text or context filter.'
-              : 'Complete an AI interaction session in the Recovery Journey tab to record it here.'}
+              : 'Save a completed communication session to store it on this device.'}
           </p>
         </div>
+
       ) : (
+
         <div className="space-y-3">
 
           {filteredSessions.map((session) => {
-            const isExpanded = expandedId === session.id;
-            const status = getSessionStatus(session);
+
+            const isExpanded =
+              expandedId === session.id;
+
+            const status =
+              getSessionStatus(session);
+
+            const messages = Array.isArray(
+              session.messages
+            )
+              ? session.messages
+              : [];
 
             return (
+
               <div
                 key={session.id}
                 className={`rounded-2xl border-2 ${borderTone} ${cardBg} overflow-hidden shadow-sm transition-all`}
               >
 
-                {/* SESSION HEADER */}
+                {/* =================================================
+                    SESSION HEADER
+                ================================================= */}
+
                 <button
                   type="button"
                   onClick={() =>
-                    setExpandedId(isExpanded ? null : session.id)
+                    setExpandedId(
+                      isExpanded
+                        ? null
+                        : session.id
+                    )
                   }
                   aria-expanded={isExpanded}
                   className={`w-full text-left p-4 sm:p-5 flex items-center justify-between gap-4 ${cardInnerBg} hover:opacity-90 transition-all`}
                 >
+
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
 
                     <div
@@ -309,9 +454,12 @@ export default function SavedSessions({ onReopenSession }) {
                     </div>
 
                     <div className="min-w-0">
+
                       <div className="flex flex-wrap items-center gap-2">
+
                         <span className="text-[10px] font-mono font-bold uppercase opacity-60">
-                          {session.context || 'Unknown Context'}
+                          {session.context ||
+                            'Unknown Context'}
                         </span>
 
                         {session.institution && (
@@ -319,27 +467,42 @@ export default function SavedSessions({ onReopenSession }) {
                             • {session.institution}
                           </span>
                         )}
+
                       </div>
 
                       <h4 className="text-sm sm:text-base font-black uppercase tracking-tight mt-0.5 break-words">
-                        {session.goal || 'Untitled AI Session'}
+                        {session.goal ||
+                          'Untitled AI Session'}
                       </h4>
 
                       <div className="flex flex-wrap items-center gap-2 mt-1.5">
+
                         <span
                           className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${borderTone}`}
                         >
                           {status}
                         </span>
 
+                        {messages.length > 0 && (
+                          <span className="text-[9px] font-mono opacity-50 flex items-center gap-1">
+                            <MessageSquare className="w-3 h-3" />
+                            {messages.length} turns
+                          </span>
+                        )}
+
                         <span className="text-[9px] font-mono opacity-50">
                           {formatDate(session.timestamp)}
                           {formatTime(session.timestamp)
-                            ? ` · ${formatTime(session.timestamp)}`
+                            ? ` · ${formatTime(
+                                session.timestamp
+                              )}`
                             : ''}
                         </span>
+
                       </div>
+
                     </div>
+
                   </div>
 
                   <div className="shrink-0">
@@ -349,10 +512,15 @@ export default function SavedSessions({ onReopenSession }) {
                       <ChevronDown className="w-4 h-4 opacity-60" />
                     )}
                   </div>
+
                 </button>
 
-                {/* EXPANDED DETAILS */}
+                {/* =================================================
+                    EXPANDED DETAILS
+                ================================================= */}
+
                 {isExpanded && (
+
                   <div
                     className="p-5 border-t space-y-4 text-xs"
                     style={{
@@ -362,18 +530,22 @@ export default function SavedSessions({ onReopenSession }) {
                     }}
                   >
 
-                    {/* SESSION METADATA */}
-                    <div
-                      className={`grid grid-cols-1 sm:grid-cols-3 gap-3`}
-                    >
+                    {/* =================================================
+                        SESSION METADATA
+                    ================================================= */}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
                       <div
                         className={`p-3 rounded-xl border ${borderTone} ${cardInnerBg}`}
                       >
                         <span className="text-[9px] font-mono font-bold uppercase opacity-50 block">
                           Context
                         </span>
+
                         <span className="font-bold block mt-1">
-                          {session.context || 'Not recorded'}
+                          {session.context ||
+                            'Not recorded'}
                         </span>
                       </div>
 
@@ -383,8 +555,10 @@ export default function SavedSessions({ onReopenSession }) {
                         <span className="text-[9px] font-mono font-bold uppercase opacity-50 block">
                           Institution
                         </span>
+
                         <span className="font-bold block mt-1">
-                          {session.institution || 'Not specified'}
+                          {session.institution ||
+                            'Not specified'}
                         </span>
                       </div>
 
@@ -394,35 +568,168 @@ export default function SavedSessions({ onReopenSession }) {
                         <span className="text-[9px] font-mono font-bold uppercase opacity-50 block">
                           Session Status
                         </span>
+
                         <span className="font-bold block mt-1">
                           {status}
                         </span>
                       </div>
+
                     </div>
 
-                    {/* CONFIRMED FACTS */}
-                    {session.confirmedFacts?.length > 0 ? (
+                    {/* =================================================
+                        COMPLETE CONVERSATION TRANSCRIPT
+                    ================================================= */}
+
+                    {messages.length > 0 && (
+
                       <div
-                        className="p-3.5 rounded-xl border border-green-500/30 bg-green-500/10 space-y-1.5"
+                        className={`p-3.5 rounded-xl border ${borderTone} ${cardInnerBg} space-y-3`}
+                      >
+
+                        <div className="flex items-center justify-between gap-2">
+
+                          <div className="flex items-center gap-2">
+
+                            <MessageSquare className="w-4 h-4 opacity-60" />
+
+                            <span className="font-mono font-bold opacity-60 uppercase text-[10px]">
+                              Complete Conversation Transcript
+                            </span>
+
+                          </div>
+
+                          <span className="text-[9px] font-mono opacity-50">
+                            {messages.length} turns
+                          </span>
+
+                        </div>
+
+                        <div className="space-y-2">
+
+                          {messages.map(
+                            (message, index) => {
+
+                              const isUser =
+                                message?.sender ===
+                                'user';
+
+                              return (
+
+                                <div
+                                  key={
+                                    message?.id ||
+                                    `${session.id}-message-${index}`
+                                  }
+                                  className={`p-3 rounded-lg border ${borderTone} ${
+                                    isUser
+                                      ? 'mr-6'
+                                      : 'ml-6'
+                                  }`}
+                                >
+
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+
+                                    <span className="text-[9px] font-mono font-bold uppercase opacity-60">
+                                      {isUser
+                                        ? 'ISL User'
+                                        : 'Staff'}
+                                    </span>
+
+                                    {message?.timestamp && (
+                                      <span className="text-[9px] font-mono opacity-40">
+                                        {message.timestamp}
+                                      </span>
+                                    )}
+
+                                  </div>
+
+                                  <p className="text-xs font-medium leading-relaxed break-words">
+                                    {message?.text ||
+                                      'Message text unavailable.'}
+                                  </p>
+
+                                  {message?.understanding && (
+                                    <span className="inline-block mt-2 text-[9px] font-mono uppercase opacity-50">
+                                      Understanding:{' '}
+                                      {
+                                        message.understanding
+                                      }
+                                    </span>
+                                  )}
+
+                                </div>
+
+                              );
+                            }
+                          )}
+
+                        </div>
+
+                      </div>
+
+                    )}
+
+                    {/* =================================================
+                        NO TRANSCRIPT WARNING
+                    ================================================= */}
+
+                    {messages.length === 0 && (
+
+                      <div
+                        className={`p-3.5 rounded-xl border border-orange-500/30 bg-orange-500/10`}
                       >
                         <div className="flex items-center gap-2">
+
+                          <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+
+                          <span className="font-mono font-bold text-orange-700 dark:text-orange-300 uppercase">
+                            Transcript Not Available
+                          </span>
+
+                        </div>
+
+                        <p className="mt-1 text-[11px] opacity-70">
+                          This saved record does not contain
+                          conversation messages.
+                        </p>
+
+                      </div>
+
+                    )}
+
+                    {/* =================================================
+                        CONFIRMED FACTS
+                    ================================================= */}
+
+                    {session.confirmedFacts?.length > 0 ? (
+
+                      <div className="p-3.5 rounded-xl border border-green-500/30 bg-green-500/10 space-y-1.5">
+
+                        <div className="flex items-center gap-2">
+
                           <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
 
                           <span className="font-mono font-bold text-green-700 dark:text-green-300 uppercase">
                             User-Confirmed Parameters
                           </span>
+
                         </div>
 
-                        {session.confirmedFacts.map((fact, idx) => (
-                          <p
-                            key={`${session.id}-fact-${idx}`}
-                            className="font-bold text-green-950 dark:text-green-100"
-                          >
-                            ✓ {fact}
-                          </p>
-                        ))}
+                        {session.confirmedFacts.map(
+                          (fact, idx) => (
+                            <p
+                              key={`${session.id}-fact-${idx}`}
+                              className="font-bold text-green-950 dark:text-green-100"
+                            >
+                              ✓ {fact}
+                            </p>
+                          )
+                        )}
+
                       </div>
+
                     ) : (
+
                       <div
                         className={`p-3.5 rounded-xl border ${borderTone} ${cardInnerBg}`}
                       >
@@ -431,83 +738,119 @@ export default function SavedSessions({ onReopenSession }) {
                         </span>
 
                         <p className="font-medium opacity-60 mt-1">
-                          No user-confirmed parameters were recorded.
+                          No user-confirmed parameters
+                          were recorded.
                         </p>
                       </div>
+
                     )}
 
-                    {/* UNRESOLVED QUESTIONS */}
+                    {/* =================================================
+                        UNRESOLVED QUESTIONS
+                    ================================================= */}
+
                     {session.unresolvedQuestions?.length > 0 && (
-                      <div
-                        className="p-3.5 rounded-xl border border-orange-500/30 bg-orange-500/10 space-y-1.5"
-                      >
+
+                      <div className="p-3.5 rounded-xl border border-orange-500/30 bg-orange-500/10 space-y-1.5">
+
                         <div className="flex items-center gap-2">
+
                           <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
 
                           <span className="font-mono font-bold text-orange-700 dark:text-orange-300 uppercase">
                             Unresolved Ambiguities
                           </span>
+
                         </div>
 
-                        {session.unresolvedQuestions.map((question, idx) => (
-                          <p
-                            key={`${session.id}-question-${idx}`}
-                            className="font-bold text-orange-950 dark:text-orange-100"
-                          >
-                            ⚠️ {question}
-                          </p>
-                        ))}
+                        {session.unresolvedQuestions.map(
+                          (question, idx) => (
+                            <p
+                              key={`${session.id}-question-${idx}`}
+                              className="font-bold text-orange-950 dark:text-orange-100"
+                            >
+                              ⚠️ {question}
+                            </p>
+                          )
+                        )}
+
                       </div>
+
                     )}
 
-                    {/* CAPTURED TEXT */}
+                    {/* =================================================
+                        CAPTURED TEXT
+                    ================================================= */}
+
                     {session.capturedText && (
+
                       <div
                         className={`p-3.5 rounded-xl border ${borderTone} ${cardInnerBg} space-y-1`}
                       >
+
                         <span className="font-mono font-bold opacity-60 uppercase block text-[10px]">
                           Raw Captured Staff Response
                         </span>
 
-                        <p className="font-medium italic leading-relaxed">
+                        <p className="font-medium italic leading-relaxed break-words">
                           "{session.capturedText}"
                         </p>
+
                       </div>
+
                     )}
 
-                    {/* SAVED TASKS */}
+                    {/* =================================================
+                        SAVED TASKS
+                    ================================================= */}
+
                     {session.savedTasks?.length > 0 && (
+
                       <div
                         className={`p-3.5 rounded-xl border ${borderTone} ${cardInnerBg} space-y-2`}
                       >
+
                         <span className="font-mono font-bold opacity-60 uppercase block text-[10px]">
                           Follow-Up Tasks Saved
                         </span>
 
-                        {session.savedTasks.map((task, idx) => (
-                          <div
-                            key={`${session.id}-task-${task.id || idx}`}
-                            className={`p-3 rounded-lg border ${borderTone} ${cardBg}`}
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                              <span className="font-bold">
-                                {task.nextAction ||
-                                  task.title ||
-                                  'Follow-up action'}
-                              </span>
+                        {session.savedTasks.map(
+                          (task, idx) => (
 
-                              {task.dueDate && (
-                                <span className="text-[10px] font-mono opacity-60">
-                                  Due: {task.dueDate}
+                            <div
+                              key={`${session.id}-task-${task.id || idx}`}
+                              className={`p-3 rounded-lg border ${borderTone} ${cardBg}`}
+                            >
+
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+
+                                <span className="font-bold">
+                                  {task.nextAction ||
+                                    task.title ||
+                                    'Follow-up action'}
                                 </span>
-                              )}
+
+                                {task.dueDate && (
+                                  <span className="text-[10px] font-mono opacity-60">
+                                    Due: {task.dueDate}
+                                  </span>
+                                )}
+
+                              </div>
+
                             </div>
-                          </div>
-                        ))}
+
+                          )
+                        )}
+
                       </div>
+
                     )}
 
-                    {/* ACTION BAR */}
+                    {/* =================================================
+                        ACTION BAR
+                    ================================================= */}
+
                     <div
                       className="pt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-t border-dashed"
                       style={{
@@ -516,55 +859,83 @@ export default function SavedSessions({ onReopenSession }) {
                           : '#655A7C20'
                       }}
                     >
+
                       <span className="text-[10px] font-mono opacity-50 break-all">
                         Session ID: {session.id}
                       </span>
 
                       <div className="flex flex-wrap gap-2">
 
-                        {typeof onReopenSession === 'function' && (
+                        {typeof onReopenSession ===
+                          'function' && (
+
                           <button
                             type="button"
-                            onClick={() => reopenSession(session)}
+                            onClick={() =>
+                              reopenSession(session)
+                            }
                             className={`py-1.5 px-3 rounded-lg border ${borderTone} ${cardInnerBg} text-xs font-mono font-bold flex items-center gap-1 hover:opacity-80 transition-all`}
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
-                            <span>Reopen Session</span>
+                            <span>
+                              Reopen Session
+                            </span>
                           </button>
+
                         )}
 
                         <button
                           type="button"
-                          onClick={() => deleteSession(session.id)}
+                          onClick={() =>
+                            deleteSession(session.id)
+                          }
                           className="py-1.5 px-3 rounded-lg border text-red-500 text-xs font-mono font-bold flex items-center gap-1 hover:bg-red-500/10 transition-all"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete Record</span>
+                          <span>
+                            Delete Record
+                          </span>
                         </button>
 
                       </div>
+
                     </div>
 
                   </div>
+
                 )}
+
               </div>
+
             );
           })}
+
         </div>
+
       )}
 
-      {/* PRIVACY NOTE */}
+      {/* =====================================================
+          PRIVACY NOTE
+      ===================================================== */}
+
       {sessions.length > 0 && (
+
         <div
           className={`p-4 rounded-xl border ${borderTone} ${cardInnerBg} text-[10px] font-mono leading-relaxed opacity-70`}
         >
-          <strong className="uppercase">Storage:</strong>{' '}
-          Saved sessions are stored in this browser's local storage under{' '}
-          <code>signmitra_ai_sessions</code>. They are not presented as
-          server-synced records by this component. Delete individual records
-          or clear the local ledger whenever you want.
+          <strong className="uppercase">
+            Storage:
+          </strong>{' '}
+          Complete saved AI sessions, including conversation
+          transcripts and session metadata, are stored in this
+          browser's local storage under{' '}
+          <code>signmitra_ai_sessions</code>. They are not
+          server-synced by this component. Delete individual
+          records or clear the local ledger whenever you want.
         </div>
+
       )}
+
     </div>
   );
 }

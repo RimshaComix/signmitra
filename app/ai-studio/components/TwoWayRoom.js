@@ -36,43 +36,60 @@ export default function TwoWayRoom({
     isDarkTheme
   } = useTheme();
 
-  // Conversation turns
+  // ---------------------------------------------------------------------------
+  // Conversation
+  // ---------------------------------------------------------------------------
+
   const [messages, setMessages] = useState([
     {
       id: 'm1',
       sender: 'user',
-      text: 'Hello. I communicate using Indian Sign Language and written text. Please speak clearly into the microphone or write your reply.',
+      text:
+        'Hello. I communicate using Indian Sign Language and written text. Please speak clearly into the microphone or write your reply.',
       timestamp: '10:00 AM',
-      status: 'confirmed'
+      status: 'confirmed',
+      understanding: null
     }
   ]);
 
-  // Current inputs
   const [userDraft, setUserDraft] = useState('');
   const [staffManualDraft, setStaffManualDraft] = useState('');
 
-  // Speech Recognition (browser STT)
+  // ---------------------------------------------------------------------------
+  // Speech Recognition
+  // ---------------------------------------------------------------------------
+
   const [isListening, setIsListening] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState('');
   const [sttSupported, setSttSupported] = useState(false);
   const [sttLanguage, setSttLanguage] = useState('en-IN');
   const recognitionRef = useRef(null);
 
-  // Text to Speech
+  // ---------------------------------------------------------------------------
+  // Text To Speech
+  // ---------------------------------------------------------------------------
+
   const [voices, setVoices] = useState([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState('');
   const [ttsSupported, setTtsSupported] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState(null);
 
-  // UI preferences
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
+
   const [captionSize, setCaptionSize] = useState('large');
   const [highContrast, setHighContrast] = useState(false);
   const [fullscreenCard, setFullscreenCard] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [savedTranscriptMsg, setSavedTranscriptMsg] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
-  // Quick preset cards
+  // ---------------------------------------------------------------------------
+  // Quick communication cards
+  // ---------------------------------------------------------------------------
+
   const PRESET_CARDS = [
     {
       label: 'Please write down',
@@ -101,14 +118,15 @@ export default function TwoWayRoom({
   ];
 
   // ---------------------------------------------------------------------------
-  // Speech API initialization
+  // Speech APIs
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+      window.SpeechRecognition ||
+      window.webkitSpeechRecognition;
 
     if (SpeechRecognition) {
       setSttSupported(true);
@@ -123,8 +141,13 @@ export default function TwoWayRoom({
         let interim = '';
         let finalized = '';
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0]?.transcript || '';
+        for (
+          let i = event.resultIndex;
+          i < event.results.length;
+          i++
+        ) {
+          const transcript =
+            event.results[i][0]?.transcript || '';
 
           if (event.results[i].isFinal) {
             finalized += transcript;
@@ -137,7 +160,9 @@ export default function TwoWayRoom({
 
         if (finalized.trim()) {
           const newTurn = {
-            id: `stt-${Date.now()}`,
+            id: `stt-${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2, 8)}`,
             sender: 'staff',
             text: finalized.trim(),
             timestamp: new Date().toLocaleTimeString([], {
@@ -145,7 +170,8 @@ export default function TwoWayRoom({
               minute: '2-digit'
             }),
             isPartial: false,
-            understanding: null
+            understanding: null,
+            status: 'captured'
           };
 
           setMessages((prev) => [...prev, newTurn]);
@@ -154,7 +180,11 @@ export default function TwoWayRoom({
       };
 
       recognizer.onerror = (event) => {
-        console.warn('Browser speech recognition error:', event.error);
+        console.warn(
+          'Browser speech recognition error:',
+          event.error
+        );
+
         setIsListening(false);
       };
 
@@ -165,24 +195,41 @@ export default function TwoWayRoom({
       recognitionRef.current = recognizer;
     }
 
-    // Text-to-Speech
     if ('speechSynthesis' in window) {
       setTtsSupported(true);
 
       const loadVoices = () => {
-        const availableVoices = window.speechSynthesis.getVoices();
+        const availableVoices =
+          window.speechSynthesis.getVoices();
 
         setVoices(availableVoices);
 
         setSelectedVoiceURI((currentURI) => {
           if (currentURI) return currentURI;
 
+          const savedVoice = localStorage.getItem(
+            'signmitra_preferred_voice'
+          );
+
+          if (
+            savedVoice &&
+            availableVoices.some(
+              (voice) => voice.voiceURI === savedVoice
+            )
+          ) {
+            return savedVoice;
+          }
+
           const preferredVoice =
             availableVoices.find((voice) =>
-              voice.lang.toLowerCase().startsWith('en-in')
+              voice.lang
+                .toLowerCase()
+                .startsWith('en-in')
             ) ||
             availableVoices.find((voice) =>
-              voice.lang.toLowerCase().startsWith('en-us')
+              voice.lang
+                .toLowerCase()
+                .startsWith('en-us')
             ) ||
             availableVoices[0];
 
@@ -191,7 +238,11 @@ export default function TwoWayRoom({
       };
 
       loadVoices();
-      window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+
+      window.speechSynthesis.addEventListener(
+        'voiceschanged',
+        loadVoices
+      );
 
       return () => {
         window.speechSynthesis.removeEventListener(
@@ -218,7 +269,6 @@ export default function TwoWayRoom({
     };
   }, []);
 
-  // Keep browser recognizer language synchronized
   useEffect(() => {
     if (recognitionRef.current) {
       recognitionRef.current.lang = sttLanguage;
@@ -249,13 +299,17 @@ export default function TwoWayRoom({
       recognitionRef.current.start();
       setIsListening(true);
     } catch (error) {
-      console.error('Failed to start browser speech recognition:', error);
+      console.error(
+        'Failed to start browser speech recognition:',
+        error
+      );
+
       setIsListening(false);
     }
   };
 
   // ---------------------------------------------------------------------------
-  // Text-to-Speech
+  // Text To Speech
   // ---------------------------------------------------------------------------
 
   const speakText = (text, id = null) => {
@@ -269,7 +323,8 @@ export default function TwoWayRoom({
 
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance =
+      new SpeechSynthesisUtterance(text);
 
     if (selectedVoiceURI) {
       const selectedVoice = voices.find(
@@ -321,14 +376,17 @@ export default function TwoWayRoom({
     if (!text.trim()) return;
 
     const newMessage = {
-      id: `usr-${Date.now()}`,
+      id: `usr-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`,
       sender: 'user',
       text: text.trim(),
       timestamp: new Date().toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit'
       }),
-      status: 'confirmed'
+      status: 'confirmed',
+      understanding: null
     };
 
     setMessages((prev) => [...prev, newMessage]);
@@ -346,14 +404,17 @@ export default function TwoWayRoom({
     if (!staffManualDraft.trim()) return;
 
     const newMessage = {
-      id: `stf-${Date.now()}`,
+      id: `stf-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`,
       sender: 'staff',
       text: staffManualDraft.trim(),
       timestamp: new Date().toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit'
       }),
-      understanding: null
+      understanding: null,
+      status: 'captured'
     };
 
     setMessages((prev) => [...prev, newMessage]);
@@ -361,14 +422,17 @@ export default function TwoWayRoom({
   };
 
   // ---------------------------------------------------------------------------
-  // Comprehension
+  // Understanding
   // ---------------------------------------------------------------------------
 
   const markUnderstanding = (messageId, status) => {
     setMessages((prev) =>
       prev.map((message) =>
         message.id === messageId
-          ? { ...message, understanding: status }
+          ? {
+              ...message,
+              understanding: status
+            }
           : message
       )
     );
@@ -389,85 +453,435 @@ export default function TwoWayRoom({
       setCopiedId(id);
 
       setTimeout(() => {
-        setCopiedId((current) => (current === id ? null : current));
+        setCopiedId((current) =>
+          current === id ? null : current
+        );
       }, 2000);
     } catch (error) {
-      console.warn('Unable to copy message:', error);
+      console.warn(
+        'Unable to copy message:',
+        error
+      );
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // Save transcript
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // SAVE COMPLETE TRANSCRIPT
+  // ===========================================================================
 
   const handleSaveTranscript = () => {
-    if (messages.length === 0) return;
+    if (
+      !Array.isArray(messages) ||
+      messages.length === 0
+    ) {
+      setSaveError(
+        'There is no conversation to save.'
+      );
+      return;
+    }
+
+    setSaveError('');
 
     try {
+      const now = Date.now();
+      const isoTimestamp =
+        new Date(now).toISOString();
+
+      // -----------------------------------------------------------------------
+      // Create a completely independent snapshot.
+      // -----------------------------------------------------------------------
+
+      const transcriptMessages = messages.map(
+        (message) => ({
+          id: message.id,
+          sender: message.sender,
+          text: message.text,
+          timestamp: message.timestamp,
+          status: message.status || null,
+          understanding:
+            message.understanding || null,
+          isPartial: Boolean(message.isPartial)
+        })
+      );
+
+      // -----------------------------------------------------------------------
+      // Human-readable transcript
+      // -----------------------------------------------------------------------
+
+      const fullTranscript =
+        transcriptMessages
+          .map((message) => {
+            const speaker =
+              message.sender === 'user'
+                ? 'USER'
+                : 'STAFF';
+
+            const understanding =
+              message.understanding
+                ? ` [${message.understanding}]`
+                : '';
+
+            return `[${message.timestamp}] ${speaker}${understanding}: ${message.text}`;
+          })
+          .join('\n');
+
+      // -----------------------------------------------------------------------
+      // Confirmed / unclear turns
+      // -----------------------------------------------------------------------
+
+      const confirmedFacts =
+        transcriptMessages
+          .filter(
+            (message) =>
+              message.understanding ===
+              'understood'
+          )
+          .map(
+            (message) =>
+              `Understood: ${message.text}`
+          );
+
+      const unresolvedQuestions =
+        transcriptMessages
+          .filter(
+            (message) =>
+              message.understanding ===
+              'unclear'
+          )
+          .map(
+            (message) =>
+              `Unclear turn: ${message.text}`
+          );
+
+      // =========================================================================
+      // REQUEST HISTORY
+      // =========================================================================
+
       const historyItem = {
-        id: `AI-CHAT-${Date.now()}`,
+        id: `AI-CHAT-${now}`,
         domain: activeContext,
         intent: 'Two-Way Conversation Session',
         title: `${activeContext} Room Transcript`,
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
+        date: new Date(now).toLocaleDateString(),
+        time: new Date(now).toLocaleTimeString(),
+        timestamp: now,
+        isoTimestamp,
         status: 'Completed',
         verifiedByStaff: false,
+
+        // CRITICAL: complete structured transcript
+        messages: transcriptMessages,
+
+        // CRITICAL: complete text transcript
+        transcript: fullTranscript,
+
         entities: {
-          'Turns Count': `${messages.length} messages`,
+          'Turns Count':
+            `${transcriptMessages.length} messages`,
+
+          Participants:
+            'User + Staff',
+
+          Context:
+            activeContext,
+
+          'Full Transcript':
+            fullTranscript,
+
+          'Confirmed Turns':
+            confirmedFacts.length > 0
+              ? confirmedFacts.join('\n')
+              : 'None',
+
+          'Unclear Turns':
+            unresolvedQuestions.length > 0
+              ? unresolvedQuestions.join('\n')
+              : 'None',
+
           'Last Message':
-            messages[messages.length - 1]?.text?.slice(0, 80) || ''
-        }
+            transcriptMessages[
+              transcriptMessages.length - 1
+            ]?.text || ''
+        },
+
+        confirmedFacts,
+        unresolvedQuestions
       };
 
-      const existingHistory = JSON.parse(
-        localStorage.getItem('signmitra_history') || '[]'
-      );
-
-      localStorage.setItem(
-        'signmitra_history',
-        JSON.stringify([historyItem, ...existingHistory])
-      );
+      // =========================================================================
+      // SAVED AI SESSION
+      // =========================================================================
 
       const sessionRecord = {
         id: historyItem.id,
-        timestamp: Date.now(),
+        timestamp: now,
+        isoTimestamp,
+
         context: activeContext,
         goal: 'Two-Way Room Chat',
-        messages,
-        confirmedFacts: messages
-          .filter((message) => message.understanding === 'understood')
-          .map((message) => `Understood: ${message.text}`),
-        unresolvedQuestions: messages
-          .filter((message) => message.understanding === 'unclear')
-          .map((message) => `Unclear turn: ${message.text}`)
+        title: `${activeContext} Room Transcript`,
+
+        status: 'Completed',
+        verifiedByStaff: false,
+
+        // CRITICAL: complete messages
+        messages: transcriptMessages,
+
+        // CRITICAL: complete transcript
+        transcript: fullTranscript,
+
+        messageCount:
+          transcriptMessages.length,
+
+        userMessageCount:
+          transcriptMessages.filter(
+            (message) =>
+              message.sender === 'user'
+          ).length,
+
+        staffMessageCount:
+          transcriptMessages.filter(
+            (message) =>
+              message.sender === 'staff'
+          ).length,
+
+        confirmedFacts,
+        unresolvedQuestions,
+
+        capturedText:
+          transcriptMessages
+            .filter(
+              (message) =>
+                message.sender === 'staff'
+            )
+            .map(
+              (message) => message.text
+            )
+            .join('\n') || '',
+
+        metadata: {
+          source: 'TwoWayRoom',
+          storage: 'browser-localStorage',
+          speechRecognitionLanguage:
+            sttLanguage,
+
+          speechRecognitionUsed:
+            transcriptMessages.some(
+              (message) =>
+                message.id?.startsWith('stt-')
+            ),
+
+          textToSpeechAvailable:
+            ttsSupported,
+
+          savedAt: isoTimestamp
+        }
       };
 
-      const existingSessions = JSON.parse(
-        localStorage.getItem('signmitra_ai_sessions') || '[]'
+      // =========================================================================
+      // READ EXISTING HISTORY
+      // =========================================================================
+
+      let existingHistory = [];
+
+      try {
+        const raw =
+          localStorage.getItem(
+            'signmitra_history'
+          );
+
+        const parsed = raw
+          ? JSON.parse(raw)
+          : [];
+
+        if (Array.isArray(parsed)) {
+          existingHistory = parsed;
+        }
+      } catch (error) {
+        console.warn(
+          'Could not parse existing history. Starting fresh.',
+          error
+        );
+      }
+
+      // =========================================================================
+      // READ EXISTING SESSIONS
+      // =========================================================================
+
+      let existingSessions = [];
+
+      try {
+        const raw =
+          localStorage.getItem(
+            'signmitra_ai_sessions'
+          );
+
+        const parsed = raw
+          ? JSON.parse(raw)
+          : [];
+
+        if (Array.isArray(parsed)) {
+          existingSessions = parsed;
+        }
+      } catch (error) {
+        console.warn(
+          'Could not parse existing sessions. Starting fresh.',
+          error
+        );
+      }
+
+      // =========================================================================
+      // WRITE BOTH STORAGE LEDGERS
+      // =========================================================================
+
+      const updatedHistory = [
+        historyItem,
+        ...existingHistory.filter(
+          (record) =>
+            record.id !== historyItem.id
+        )
+      ];
+
+      const updatedSessions = [
+        sessionRecord,
+        ...existingSessions.filter(
+          (session) =>
+            session.id !== sessionRecord.id
+        )
+      ];
+
+      localStorage.setItem(
+        'signmitra_history',
+        JSON.stringify(updatedHistory)
       );
 
       localStorage.setItem(
         'signmitra_ai_sessions',
-        JSON.stringify([sessionRecord, ...existingSessions])
+        JSON.stringify(updatedSessions)
       );
 
+      // =========================================================================
+      // READ-BACK VERIFICATION
+      // =========================================================================
+
+      const verifiedHistory =
+        JSON.parse(
+          localStorage.getItem(
+            'signmitra_history'
+          ) || '[]'
+        );
+
+      const verifiedSessions =
+        JSON.parse(
+          localStorage.getItem(
+            'signmitra_ai_sessions'
+          ) || '[]'
+        );
+
+      const historyRecord =
+        verifiedHistory.find(
+          (record) =>
+            record.id === historyItem.id
+        );
+
+      const sessionRecordFromStorage =
+        verifiedSessions.find(
+          (session) =>
+            session.id ===
+            sessionRecord.id
+        );
+
+      const historyVerified =
+        Boolean(
+          historyRecord &&
+          Array.isArray(
+            historyRecord.messages
+          ) &&
+          historyRecord.messages.length ===
+            transcriptMessages.length &&
+          historyRecord.transcript ===
+            fullTranscript
+        );
+
+      const sessionVerified =
+        Boolean(
+          sessionRecordFromStorage &&
+          Array.isArray(
+            sessionRecordFromStorage.messages
+          ) &&
+          sessionRecordFromStorage.messages
+            .length ===
+            transcriptMessages.length &&
+          sessionRecordFromStorage.transcript ===
+            fullTranscript
+        );
+
+      if (
+        !historyVerified ||
+        !sessionVerified
+      ) {
+        throw new Error(
+          'Complete transcript verification failed.'
+        );
+      }
+
+      // =========================================================================
+      // NOTIFY OTHER COMPONENTS
+      // =========================================================================
+
+      window.dispatchEvent(
+        new Event(
+          'signmitra:history-updated'
+        )
+      );
+
+      window.dispatchEvent(
+        new Event(
+          'signmitra:sessions-updated'
+        )
+      );
+
+      // Parent callback
       if (onSaveSession) {
         onSaveSession(sessionRecord);
       }
 
+      // Success state
       setSavedTranscriptMsg(true);
 
       setTimeout(() => {
         setSavedTranscriptMsg(false);
       }, 3000);
+
+      console.info(
+        'SignMitra transcript saved and verified.',
+        {
+          id: historyItem.id,
+          messages:
+            transcriptMessages.length,
+          historyVerified,
+          sessionVerified
+        }
+      );
     } catch (error) {
-      console.error('Failed to save transcript:', error);
+      console.error(
+        'Failed to save complete transcript:',
+        error
+      );
+
+      setSavedTranscriptMsg(false);
+
+      setSaveError(
+        error?.name ===
+          'QuotaExceededError'
+          ? 'Browser storage is full. Delete older sessions and try again.'
+          : 'Unable to save the transcript on this device.'
+      );
     }
   };
 
   // ---------------------------------------------------------------------------
-  // Fullscreen card + keyboard accessibility
+  // Fullscreen keyboard accessibility
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
@@ -479,15 +893,21 @@ export default function TwoWayRoom({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener(
+      'keydown',
+      handleKeyDown
+    );
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener(
+        'keydown',
+        handleKeyDown
+      );
     };
   }, [fullscreenCard]);
 
   // ---------------------------------------------------------------------------
-  // Font size
+  // Caption sizes
   // ---------------------------------------------------------------------------
 
   const sizeClasses = {
@@ -495,6 +915,10 @@ export default function TwoWayRoom({
     large: 'text-base sm:text-xl font-bold',
     xlarge: 'text-xl sm:text-2xl font-black'
   };
+
+  // ===========================================================================
+  // UI
+  // ===========================================================================
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -504,7 +928,7 @@ export default function TwoWayRoom({
         className={`p-4 sm:p-5 rounded-2xl border-2 ${borderTone} ${cardBg} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm`}
       >
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span
               className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider ${accentSolid}`}
             >
@@ -521,7 +945,6 @@ export default function TwoWayRoom({
           </h2>
         </div>
 
-        {/* Display and speech preferences */}
         <div className="flex flex-wrap items-center gap-2">
 
           {/* Caption size */}
@@ -532,10 +955,16 @@ export default function TwoWayRoom({
               Size:
             </span>
 
-            {['normal', 'large', 'xlarge'].map((size) => (
+            {[
+              'normal',
+              'large',
+              'xlarge'
+            ].map((size) => (
               <button
                 key={size}
-                onClick={() => setCaptionSize(size)}
+                onClick={() =>
+                  setCaptionSize(size)
+                }
                 className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase transition-all ${
                   captionSize === size
                     ? accentSolid
@@ -551,7 +980,11 @@ export default function TwoWayRoom({
 
           {/* High contrast */}
           <button
-            onClick={() => setHighContrast((value) => !value)}
+            onClick={() =>
+              setHighContrast(
+                (value) => !value
+              )
+            }
             className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold uppercase transition-all ${
               highContrast
                 ? 'bg-black text-yellow-300 border-yellow-300'
@@ -563,22 +996,38 @@ export default function TwoWayRoom({
               : 'High Contrast: OFF'}
           </button>
 
-          {/* STT language */}
+          {/* Speech language */}
           <select
             value={sttLanguage}
-            onChange={(event) => setSttLanguage(event.target.value)}
+            onChange={(event) =>
+              setSttLanguage(
+                event.target.value
+              )
+            }
             className={`p-1.5 rounded-lg border text-xs font-mono font-bold outline-none ${cardInnerBg} ${borderTone}`}
             aria-label="Speech recognition language"
           >
-            <option value="en-IN">English (India)</option>
-            <option value="hi-IN">Hindi (India)</option>
-            <option value="ta-IN">Tamil (India)</option>
-            <option value="te-IN">Telugu (India)</option>
-            <option value="kn-IN">Kannada (India)</option>
-            <option value="bn-IN">Bengali (India)</option>
+            <option value="en-IN">
+              English (India)
+            </option>
+            <option value="hi-IN">
+              Hindi (India)
+            </option>
+            <option value="ta-IN">
+              Tamil (India)
+            </option>
+            <option value="te-IN">
+              Telugu (India)
+            </option>
+            <option value="kn-IN">
+              Kannada (India)
+            </option>
+            <option value="bn-IN">
+              Bengali (India)
+            </option>
           </select>
 
-          {/* Save transcript */}
+          {/* Save */}
           <button
             onClick={handleSaveTranscript}
             className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold uppercase transition-all flex items-center gap-1 ${
@@ -587,7 +1036,12 @@ export default function TwoWayRoom({
                 : accentSolid
             }`}
           >
-            <Save className="w-3.5 h-3.5" />
+            {savedTranscriptMsg ? (
+              <Check className="w-3.5 h-3.5" />
+            ) : (
+              <Save className="w-3.5 h-3.5" />
+            )}
+
             <span>
               {savedTranscriptMsg
                 ? 'Transcript Saved!'
@@ -597,19 +1051,30 @@ export default function TwoWayRoom({
         </div>
       </div>
 
-      {/* Conversation stream */}
+      {/* Save error */}
+      {saveError && (
+        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300 text-xs font-mono font-bold">
+          {saveError}
+        </div>
+      )}
+
+      {/* Conversation */}
       <div
         className={`p-4 sm:p-6 rounded-2xl border-2 ${borderTone} ${
-          highContrast ? 'bg-black text-white' : cardBg
+          highContrast
+            ? 'bg-black text-white'
+            : cardBg
         } space-y-4 min-h-[360px] max-h-[500px] overflow-y-auto shadow-inner`}
       >
         {messages.length === 0 && (
           <div className="min-h-[300px] flex items-center justify-center text-center opacity-60">
             <div>
               <Users className="w-8 h-8 mx-auto mb-2" />
+
               <p className="font-mono text-xs uppercase tracking-wider">
                 Conversation cleared
               </p>
+
               <p className="text-sm mt-1">
                 Start a new message to continue.
               </p>
@@ -618,8 +1083,11 @@ export default function TwoWayRoom({
         )}
 
         {messages.map((message) => {
-          const isUser = message.sender === 'user';
-          const isStaff = message.sender === 'staff';
+          const isUser =
+            message.sender === 'user';
+
+          const isStaff =
+            message.sender === 'staff';
 
           return (
             <div
@@ -634,7 +1102,6 @@ export default function TwoWayRoom({
                   : `mr-auto max-w-[90%] sm:max-w-[85%] ${cardInnerBg} ${borderTone}`
               }`}
             >
-              {/* Turn header */}
               <div
                 className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-dashed"
                 style={{
@@ -663,21 +1130,25 @@ export default function TwoWayRoom({
 
                 <div className="flex items-center gap-1.5">
 
-                  {/* Speak */}
                   {ttsSupported && (
                     <button
                       onClick={() =>
                         isSpeaking &&
-                        speakingMessageId === message.id
+                        speakingMessageId ===
+                          message.id
                           ? stopSpeaking()
-                          : speakText(message.text, message.id)
+                          : speakText(
+                              message.text,
+                              message.id
+                            )
                       }
                       className={`p-1.5 rounded-lg border text-xs font-mono flex items-center gap-1 ${cardInnerBg} ${borderTone} hover:opacity-80 transition-all`}
-                      title="Speak message aloud using browser text-to-speech"
+                      title="Speak message aloud"
                       aria-label="Speak message aloud"
                     >
                       {isSpeaking &&
-                      speakingMessageId === message.id ? (
+                      speakingMessageId ===
+                        message.id ? (
                         <VolumeX className="w-3.5 h-3.5 text-red-500 animate-pulse" />
                       ) : (
                         <Volume2 className="w-3.5 h-3.5" />
@@ -685,9 +1156,12 @@ export default function TwoWayRoom({
                     </button>
                   )}
 
-                  {/* Fullscreen */}
                   <button
-                    onClick={() => setFullscreenCard(message.text)}
+                    onClick={() =>
+                      setFullscreenCard(
+                        message.text
+                      )
+                    }
                     className={`p-1.5 rounded-lg border text-xs font-mono ${cardInnerBg} ${borderTone} hover:opacity-80 transition-all`}
                     title="Present in fullscreen high-contrast card"
                     aria-label="Present message fullscreen"
@@ -695,16 +1169,19 @@ export default function TwoWayRoom({
                     <Maximize2 className="w-3.5 h-3.5" />
                   </button>
 
-                  {/* Copy */}
                   <button
                     onClick={() =>
-                      handleCopy(message.text, message.id)
+                      handleCopy(
+                        message.text,
+                        message.id
+                      )
                     }
                     className={`p-1.5 rounded-lg border text-xs font-mono ${cardInnerBg} ${borderTone} hover:opacity-80 transition-all`}
                     title="Copy text"
                     aria-label="Copy message text"
                   >
-                    {copiedId === message.id ? (
+                    {copiedId ===
+                    message.id ? (
                       <Check className="w-3.5 h-3.5 text-green-500" />
                     ) : (
                       <Copy className="w-3.5 h-3.5" />
@@ -713,7 +1190,6 @@ export default function TwoWayRoom({
                 </div>
               </div>
 
-              {/* Message */}
               <p
                 className={`leading-relaxed ${
                   sizeClasses[captionSize]
@@ -726,7 +1202,6 @@ export default function TwoWayRoom({
                 {message.text}
               </p>
 
-              {/* Staff comprehension */}
               {isStaff && (
                 <div
                   className="mt-3 pt-2.5 border-t border-dashed flex flex-wrap items-center justify-between gap-2"
@@ -749,7 +1224,8 @@ export default function TwoWayRoom({
                         )
                       }
                       className={`px-2 py-1 rounded text-[10px] font-mono font-bold flex items-center gap-1 border transition-all ${
-                        message.understanding === 'understood'
+                        message.understanding ===
+                        'understood'
                           ? 'bg-green-600 text-white border-green-600'
                           : `${cardInnerBg} ${borderTone}`
                       }`}
@@ -766,7 +1242,8 @@ export default function TwoWayRoom({
                         )
                       }
                       className={`px-2 py-1 rounded text-[10px] font-mono font-bold flex items-center gap-1 border transition-all ${
-                        message.understanding === 'unclear'
+                        message.understanding ===
+                        'unclear'
                           ? 'bg-orange-500 text-white border-orange-500'
                           : `${cardInnerBg} ${borderTone}`
                       }`}
@@ -779,12 +1256,16 @@ export default function TwoWayRoom({
                   {onSendToExplainer && (
                     <button
                       onClick={() =>
-                        onSendToExplainer(message.text)
+                        onSendToExplainer(
+                          message.text
+                        )
                       }
                       className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 border ${accentSolid} hover:opacity-90`}
                     >
                       <Sparkles className="w-3 h-3" />
-                      <span>Explain in Plain Language</span>
+                      <span>
+                        Explain in Plain Language
+                      </span>
                     </button>
                   )}
                 </div>
@@ -793,7 +1274,6 @@ export default function TwoWayRoom({
           );
         })}
 
-        {/* Live browser speech recognition */}
         {isListening && (
           <div className="p-4 rounded-2xl border-2 border-red-500/50 bg-red-500/10 mr-auto max-w-[85%] animate-pulse">
             <div className="flex items-center gap-2 mb-1.5">
@@ -817,7 +1297,7 @@ export default function TwoWayRoom({
       {/* Input station */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* User -> Staff */}
+        {/* User */}
         <div
           className={`p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-3 flex flex-col justify-between shadow-sm`}
         >
@@ -825,7 +1305,9 @@ export default function TwoWayRoom({
             <div className="flex justify-between items-center mb-2">
               <label className="text-xs font-mono font-bold uppercase tracking-wider opacity-80 flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5" />
-                <span>You: Show or Speak to Staff</span>
+                <span>
+                  You: Show or Speak to Staff
+                </span>
               </label>
 
               <span className="text-[10px] font-mono opacity-50">
@@ -836,38 +1318,45 @@ export default function TwoWayRoom({
             <textarea
               value={userDraft}
               onChange={(event) =>
-                setUserDraft(event.target.value)
+                setUserDraft(
+                  event.target.value
+                )
               }
               placeholder="Type your message to show staff or tap a preset card below..."
               rows={3}
               className={`w-full p-3 font-bold border-2 rounded-xl text-sm outline-none transition-colors focus:border-[#655A7C] resize-none ${cardInnerBg} ${borderTone}`}
             />
 
-            {/* Quick presets */}
             <div className="mt-2.5">
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-60 block mb-1.5">
                 1-Tap Communication Cards:
               </span>
 
               <div className="flex flex-wrap gap-1.5">
-                {PRESET_CARDS.map((card, index) => (
-                  <button
-                    key={index}
-                    onClick={() =>
-                      handleSendUserMessage(card.text)
-                    }
-                    className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all ${cardInnerBg} ${borderTone} hover:border-[#655A7C] active:scale-95`}
-                  >
-                    "{card.label}"
-                  </button>
-                ))}
+                {PRESET_CARDS.map(
+                  (card, index) => (
+                    <button
+                      key={index}
+                      onClick={() =>
+                        handleSendUserMessage(
+                          card.text
+                        )
+                      }
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-all ${cardInnerBg} ${borderTone} hover:border-[#655A7C] active:scale-95`}
+                    >
+                      "{card.label}"
+                    </button>
+                  )
+                )}
               </div>
             </div>
           </div>
 
           <div className="pt-2 flex items-center gap-2">
             <button
-              onClick={() => handleSendUserMessage()}
+              onClick={() =>
+                handleSendUserMessage()
+              }
               disabled={!userDraft.trim()}
               className={`flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 transition-all ${
                 userDraft.trim()
@@ -882,7 +1371,9 @@ export default function TwoWayRoom({
             <button
               onClick={() =>
                 userDraft.trim() &&
-                setFullscreenCard(userDraft)
+                setFullscreenCard(
+                  userDraft
+                )
               }
               disabled={!userDraft.trim()}
               className={`py-3 px-4 rounded-xl border-2 ${borderTone} ${cardInnerBg} font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 hover:opacity-80 transition-all ${
@@ -898,7 +1389,7 @@ export default function TwoWayRoom({
           </div>
         </div>
 
-        {/* Staff -> User */}
+        {/* Staff */}
         <div
           className={`p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-3 flex flex-col justify-between shadow-sm`}
         >
@@ -906,7 +1397,9 @@ export default function TwoWayRoom({
             <div className="flex justify-between items-center mb-2">
               <label className="text-xs font-mono font-bold uppercase tracking-wider opacity-80 flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5" />
-                <span>Staff: Speech Subtitles or Typing</span>
+                <span>
+                  Staff: Speech Subtitles or Typing
+                </span>
               </label>
 
               {sttSupported ? (
@@ -940,7 +1433,9 @@ export default function TwoWayRoom({
             <textarea
               value={staffManualDraft}
               onChange={(event) =>
-                setStaffManualDraft(event.target.value)
+                setStaffManualDraft(
+                  event.target.value
+                )
               }
               placeholder="Staff can type their response here if speech subtitles are unclear..."
               rows={3}
@@ -971,14 +1466,21 @@ export default function TwoWayRoom({
               }`}
             >
               <Send className="w-4 h-4" />
-              <span>Record Written Response</span>
+              <span>
+                Record Written Response
+              </span>
             </button>
 
             <button
               onClick={() => {
-                if (window.confirm('Clear current room conversation?')) {
+                if (
+                  window.confirm(
+                    'Clear current room conversation?'
+                  )
+                ) {
                   setMessages([]);
                   setInterimTranscript('');
+                  setSaveError('');
                 }
               }}
               className={`p-3 rounded-xl border-2 ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all text-xs font-mono`}
@@ -991,7 +1493,7 @@ export default function TwoWayRoom({
         </div>
       </div>
 
-      {/* Fullscreen communication card */}
+      {/* Fullscreen card */}
       {fullscreenCard && (
         <div
           className={`fixed inset-0 z-[120] flex flex-col justify-between p-6 sm:p-12 ${bgCanvas} ${textPrimary} animate-in zoom-in-95 duration-200`}
@@ -1009,7 +1511,9 @@ export default function TwoWayRoom({
 
               {ttsSupported && (
                 <button
-                  onClick={() => speakText(fullscreenCard)}
+                  onClick={() =>
+                    speakText(fullscreenCard)
+                  }
                   className={`px-4 py-2 rounded-xl border-2 ${borderTone} ${cardInnerBg} font-mono font-bold text-xs flex items-center gap-1.5 hover:opacity-80 transition-all`}
                 >
                   <Volume2 className="w-4 h-4" />
@@ -1019,7 +1523,9 @@ export default function TwoWayRoom({
             </div>
 
             <button
-              onClick={() => setFullscreenCard(null)}
+              onClick={() =>
+                setFullscreenCard(null)
+              }
               className={`px-6 py-3 rounded-xl border-2 ${borderTone} ${accentSolid} font-black text-sm uppercase tracking-wider hover:opacity-90 transition-all flex items-center gap-2`}
             >
               <X className="w-4 h-4" />

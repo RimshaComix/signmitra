@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server.js';
+import { NextResponse } from 'next/server';
 
 // Preset accessibility data matching app/directory/page.js
 const VERIFIED_DIRECTORY = [
@@ -185,10 +185,17 @@ function findInCoreDictionary(text, lang) {
 }
 
 // Helper: Call Gemini API if available
-async function callGemini(prompt, systemInstruction = '', inlineData = null) {
+async function callGemini(
+  prompt,
+  systemInstruction = '',
+  inlineData = null
+) {
   const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.error('GEMINI_API_KEY is missing.');
+    return null;
+  }
 
   try {
     const parts = [];
@@ -202,50 +209,107 @@ async function callGemini(prompt, systemInstruction = '', inlineData = null) {
       });
     }
 
-    parts.push({ text: prompt });
+    parts.push({
+      text: prompt
+    });
 
     const body = {
-      contents: [{ parts }]
+      contents: [
+        {
+          role: 'user',
+          parts
+        }
+      ]
     };
 
     if (systemInstruction) {
       body.systemInstruction = {
-        parts: [{ text: systemInstruction }]
+        parts: [
+          {
+            text: systemInstruction
+          }
+        ]
       };
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(9000)
+        signal: AbortSignal.timeout(20000)
       }
     );
 
+    const responseText = await response.text();
+
     if (!response.ok) {
-      console.warn(`Gemini returned status ${response.status}`);
+      console.error(
+        'Gemini API Error:',
+        response.status,
+        responseText
+      );
+
       return null;
     }
 
-    const data = await response.json();
-    const rawOutput = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    let data;
 
-    if (!rawOutput) return null;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      console.error(
+        'Gemini returned invalid JSON:',
+        responseText
+      );
+
+      return null;
+    }
+
+    const rawOutput =
+      data?.candidates?.[0]?.content?.parts
+        ?.map(part => part?.text || '')
+        .join('')
+        .trim();
+
+    if (!rawOutput) {
+      console.error(
+        'Gemini returned no text output:',
+        JSON.stringify(data, null, 2)
+      );
+
+      return null;
+    }
 
     const cleaned = rawOutput
-      .replace(/```json/gi, '')
-      .replace(/```/g, '')
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/i, '')
       .trim();
 
     try {
       return JSON.parse(cleaned);
-    } catch {
-      return { raw: rawOutput };
+    } catch (parseError) {
+      console.error(
+        'Gemini JSON parse failed:',
+        parseError.message,
+        rawOutput
+      );
+
+      return {
+        raw: rawOutput
+      };
     }
   } catch (err) {
-    console.warn('Gemini invocation error:', err.message);
+    console.error(
+      'Gemini invocation error:',
+      err?.message || err
+    );
+
     return null;
   }
 }
@@ -260,6 +324,62 @@ export async function POST(req) {
         { error: 'Action parameter is required' },
         { status: 400 }
       );
+    }
+
+    // Feature 24 uses the verified directory + dynamically passed local reviews
+    if (action === 'evidence_accessibility') {
+      const institutionId = payload?.institutionId || '';
+      const query = payload?.query?.trim().toLowerCase() || '';
+      const localReviews = payload?.localReviews || []; // <--- GET LOCAL REVIEWS
+
+      // Convert local reviews to match the directory format
+      const formattedLocal = localReviews.map(rev => ({
+        id: rev.id,
+        name: rev.institutionName,
+        type: rev.institutionType,
+        address: 'User Submitted Location',
+        lastVerified: rev.timestamp,
+        verifiedBy: 'SignMitra Community (Your Review)',
+        isSample: false,
+        features: {
+          interpreter: { 
+            status: rev.interpreterRating > 0 ? 'available' : 'unknown', 
+            text: `Community Rated: ${rev.interpreterRating}/5` 
+          },
+          visualQueue: { 
+            status: rev.visualDisplayRating > 0 ? 'yes' : 'unknown', 
+            text: `Community Rated: ${rev.visualDisplayRating}/5` 
+          },
+          writtenSupport: { 
+            status: rev.writtenSupportRating > 0 ? 'yes' : 'unknown', 
+            text: `Community Rated: ${rev.writtenSupportRating}/5` 
+          }
+        }
+      }));
+
+      // Merge the hardcoded directory with your live browser reviews
+      const combinedDirectory = [...VERIFIED_DIRECTORY, ...formattedLocal];
+      let records = combinedDirectory;
+
+      if (institutionId) {
+        records = combinedDirectory.filter((record) => record.id === institutionId);
+      } else if (query) {
+        records = combinedDirectory.filter((record) => {
+          return (
+            record.name.toLowerCase().includes(query) ||
+            record.type.toLowerCase().includes(query) ||
+            record.address.toLowerCase().includes(query)
+          );
+        });
+      }
+
+      return NextResponse.json({
+        records,
+        total: records.length,
+        verificationPolicy: 'Summarized from verified audit records and local user feedback.',
+        provider: 'signmitra-directory-evidence',
+        backend_source: 'nextjs_verified_directory'
+      });
     }
 
     // ============================================================
@@ -311,6 +431,7 @@ export async function POST(req) {
       // Continue to local Next.js fallback.
     }
 
+    console.log('AI STUDIO ACTION:', action);
     switch (action) {
 
       /* ========================================================
@@ -2510,7 +2631,7 @@ Remember:
         });
       }
 
-      /* ========================================================
+/* ========================================================
          9. IMAGE & DOCUMENT UNDERSTANDING / OCR
          Features 7, 8, 9, 10, 11
          ======================================================== */
@@ -2523,70 +2644,88 @@ Remember:
           sampleType = ''
         } = payload;
 
-        if (
-          imageBase64 &&
-          process.env.GEMINI_API_KEY
-        ) {
-          const systemPrompt =
-            `You are SignMitra Visual Accessibility Engine. ` +
-            `You extract text from signs, queue tokens, notices, and documents for an ISL user. ` +
-            `NEVER invent unreadable text. ` +
-            `NEVER identify people or infer sensitive personal attributes. ` +
-            `Return strict JSON.`;
+                /* ------------------------------------------------
+           REAL IMAGE → FASTAPI → GROQ VISION
+           ------------------------------------------------ */
+        if (imageBase64 && !sampleType) {
+          const pythonBackendUrl =
+            process.env.AI_BACKEND_URL ||
+            'http://127.0.0.1:8000';
 
-          const userPrompt = `Inspect this image. Mode: ${featureType}.
-Extract all visible text accurately.
-If mode is queue_token, extract token number, counter/room, date/time, and instructions.
-If mode is document, provide plain language breakdown, key dates, amounts, and action items.
-If mode is description, describe visible objects, layout, and signboards concisely without identifying individuals.
-
-Respond strictly in JSON:
-{
-  "extractedText": "All legible text in the image",
-  "confidence": "High | Medium | Low",
-  "queueDetails": {
-    "tokenNumber": "Extracted token or 'Not visible'",
-    "counterNumber": "Counter/Room or 'Not visible'",
-    "dateTime": "Date/time or 'Not visible'",
-    "instructions": "Any queue instructions"
-  },
-  "documentBreakdown": {
-    "plainSummary": "Plain explanation",
-    "keyDates": ["Date 1"],
-    "amounts": ["Fee/amount"],
-    "actionItems": ["Required action"]
-  },
-  "imageDescription": "Concise factual description of visible layout and text"
-}`;
-
-          const inlineData = {
-            mimeType: imageMimeType,
-            data: imageBase64.replace(
-              /^data:image\/\w+;base64,/,
-              ''
-            )
-          };
-
-          const geminiRes =
-            await callGemini(
-              userPrompt,
-              systemPrompt,
-              inlineData
+          try {
+            const pythonRes = await fetch(
+              `${pythonBackendUrl}/api/ai-studio`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  action: 'understand_image',
+                  data: {
+                    imageBase64,
+                    imageMimeType,
+                    featureType
+                  }
+                }),
+                signal: AbortSignal.timeout(30000)
+              }
             );
 
-          if (
-            geminiRes &&
-            (
-              geminiRes.extractedText ||
-              geminiRes.imageDescription
-            )
-          ) {
+            const pythonData =
+              await pythonRes.json();
+
+            if (pythonRes.ok) {
+              return NextResponse.json({
+                ...pythonData,
+                backend_source: 'fastapi_python'
+              });
+            }
+
+            console.error(
+              'FastAPI Vision Error:',
+              pythonRes.status,
+              pythonData
+            );
+
             return NextResponse.json({
-              ...geminiRes,
-              provider: 'gemini-vision'
+              extractedText: '',
+              confidence: 'Unavailable',
+              queueDetails: null,
+              documentBreakdown: null,
+              imageDescription: '',
+              provider: 'vision-unavailable',
+              fallback: true,
+              message:
+                pythonData?.detail ||
+                'Live image analysis is unavailable. No structured information was generated from this image.'
+            });
+          } catch (error) {
+            console.error(
+              'FastAPI Vision Request Failed:',
+              error
+            );
+
+            return NextResponse.json({
+              extractedText: '',
+              confidence: 'Unavailable',
+              queueDetails: null,
+              documentBreakdown: null,
+              imageDescription: '',
+              provider: 'vision-unavailable',
+              fallback: true,
+              message:
+                'Live image analysis is unavailable. No structured information was generated from this image.'
             });
           }
         }
+
+        /* ------------------------------------------------
+           DEMO / DETERMINISTIC SAMPLE PROCESSOR
+
+           This path is ONLY used when sampleType is
+           explicitly supplied by the sample buttons.
+           ------------------------------------------------ */
 
         let sampleResult = {
           extractedText:
@@ -2661,6 +2800,7 @@ Respond strictly in JSON:
             imageDescription:
               'Printed paper notice on official notice board regarding Semester Examination Verification.'
           };
+
         } else if (
           sampleType === 'prescription'
         ) {
@@ -2707,58 +2847,51 @@ Respond strictly in JSON:
 
         return NextResponse.json({
           ...sampleResult,
-          provider: 'deterministic-ocr'
+          provider: 'deterministic-ocr',
+          fallback: true,
+          sampleType
         });
       }
 
       /* ========================================================
-         10. EVIDENCE-GROUNDED ACCESSIBILITY (Feature 24)
-         ======================================================== */
+   10. EVIDENCE-GROUNDED ACCESSIBILITY (Feature 24)
+   ======================================================== */
 
-      case 'evidence_accessibility': {
-        const {
-          institutionId = '',
-          query = ''
-        } = payload;
+case 'evidence_accessibility': {
+  const institutionId = payload?.institutionId || '';
+  const query = payload?.query?.trim().toLowerCase() || '';
 
-        let records =
-          VERIFIED_DIRECTORY;
+  let records = VERIFIED_DIRECTORY;
 
-        if (institutionId) {
-          records =
-            VERIFIED_DIRECTORY.filter(
-              (r) => r.id === institutionId
-            );
-        } else if (query) {
-          const q =
-            query.toLowerCase();
+  if (institutionId) {
+    records = VERIFIED_DIRECTORY.filter(
+      (record) => record.id === institutionId
+    );
+  } else if (query) {
+    records = VERIFIED_DIRECTORY.filter((record) => {
+      return (
+        record.name.toLowerCase().includes(query) ||
+        record.type.toLowerCase().includes(query) ||
+        record.address.toLowerCase().includes(query)
+      );
+    });
+  }
 
-          records =
-            VERIFIED_DIRECTORY.filter(
-              (r) =>
-                r.name
-                  .toLowerCase()
-                  .includes(q) ||
-                r.type
-                  .toLowerCase()
-                  .includes(q) ||
-                r.address
-                  .toLowerCase()
-                  .includes(q)
-            );
-        }
+  console.log('FEATURE 24 DEBUG:', {
+    payload,
+    directoryCount: VERIFIED_DIRECTORY.length,
+    recordsCount: records.length,
+    records
+  });
 
-        return NextResponse.json({
-          records,
-          total: records.length,
-
-          verificationPolicy:
-            'All facilities summarized strictly from verified audit records. Unverified features are marked as Not Reported.',
-
-          provider:
-            'signmitra-directory-evidence'
-        });
-      }
+  return NextResponse.json({
+    records,
+    total: records.length,
+    verificationPolicy:
+      'All facilities summarized strictly from verified audit records. Unverified features are marked as Not Reported.',
+    provider: 'signmitra-directory-evidence'
+  });
+}
 
       /* ========================================================
          DEFAULT UNKNOWN ACTION

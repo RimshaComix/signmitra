@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import {
@@ -17,215 +17,876 @@ import {
 } from 'lucide-react';
 
 export default function RequestHistory() {
-  const { bgCanvas, textPrimary, textSecondary, cardBg, cardInnerBg, borderTone, accentSolid, isDarkTheme } = useTheme();
-  
+  const {
+    bgCanvas,
+    textPrimary,
+    textSecondary,
+    cardBg,
+    cardInnerBg,
+    borderTone,
+    accentSolid,
+    isDarkTheme
+  } = useTheme();
+
   const [records, setRecords] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
 
-  useEffect(() => {
+  // ---------------------------------------------------------
+  // LOAD HISTORY
+  // ---------------------------------------------------------
+  const loadHistory = () => {
     try {
-      const saved = JSON.parse(localStorage.getItem('signmitra_history') || '[]');
-      setRecords(saved);
-    } catch (e) {
+      const raw = localStorage.getItem('signmitra_history');
+      const parsed = raw ? JSON.parse(raw) : [];
+
+      setRecords(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+      console.error('Failed to load request history:', error);
       setRecords([]);
     }
+  };
+
+  // ---------------------------------------------------------
+  // INITIAL LOAD + CROSS-COMPONENT SYNC
+  // ---------------------------------------------------------
+  useEffect(() => {
+    loadHistory();
+
+    const handleHistoryUpdated = () => {
+      loadHistory();
+    };
+
+    window.addEventListener(
+      'signmitra:history-updated',
+      handleHistoryUpdated
+    );
+
+    return () => {
+      window.removeEventListener(
+        'signmitra:history-updated',
+        handleHistoryUpdated
+      );
+    };
   }, []);
 
+  // ---------------------------------------------------------
+  // DELETE ONE RECORD
+  // ---------------------------------------------------------
   const deleteRecord = (id) => {
-    if (confirm("Permanently delete this communication record?")) {
-      const updated = records.filter(r => r.id !== id);
+    if (
+      !confirm(
+        'Permanently delete this communication record?'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const updated = records.filter(
+        (record) => record.id !== id
+      );
+
+      localStorage.setItem(
+        'signmitra_history',
+        JSON.stringify(updated)
+      );
+
       setRecords(updated);
-      localStorage.setItem('signmitra_history', JSON.stringify(updated));
+
+      if (expandedId === id) {
+        setExpandedId(null);
+      }
+
+      window.dispatchEvent(
+        new Event('signmitra:history-updated')
+      );
+    } catch (error) {
+      console.error('Failed to delete history record:', error);
     }
   };
 
+  // ---------------------------------------------------------
+  // CLEAR ALL HISTORY
+  // ---------------------------------------------------------
   const clearAll = () => {
-    if (confirm("Clear all request history? This cannot be undone.")) {
-      setRecords([]);
+    if (
+      !confirm(
+        'Clear all request history? This cannot be undone.'
+      )
+    ) {
+      return;
+    }
+
+    try {
       localStorage.removeItem('signmitra_history');
+
+      setRecords([]);
+      setExpandedId(null);
+
+      window.dispatchEvent(
+        new Event('signmitra:history-updated')
+      );
+    } catch (error) {
+      console.error('Failed to clear request history:', error);
     }
   };
 
-  return (
-    <div className={`min-h-screen transition-colors duration-200 font-sans antialiased flex flex-col ${bgCanvas} ${textPrimary}`}>
-      {/* Header */}
-      <div className={`w-full border-b py-3 px-4 sm:px-8 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg}`}>
-        <div className="flex items-center gap-3">
-          <Link href="/communication-hub" className="font-bold uppercase tracking-wider hover:opacity-75 transition-opacity inline-flex items-center gap-1.5">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Hub</span>
-          </Link>
-          <span className="opacity-40">/</span>
-          <span className="opacity-90 font-bold uppercase tracking-wide">MY REQUESTS</span>
-        </div>
-      </div>
+  // ---------------------------------------------------------
+  // HELPERS
+  // ---------------------------------------------------------
+  const isConversationRecord = (record) => {
+    return (
+      record?.intent === 'live_chat' ||
+      record?.intent === 'Two-Way Conversation Session' ||
+      (Array.isArray(record?.messages) &&
+        record.messages.length > 0) ||
+      Boolean(record?.transcript)
+    );
+  };
 
-      <main className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 pb-28">
-        <header className={`rounded-xl border ${borderTone} p-5 sm:p-6 mb-6 shadow-sm flex flex-col sm:flex-row justify-between items-start gap-4 ${cardBg}`}>
-          <div>
-            <div className={`inline-flex items-center gap-2 px-2 py-0.5 rounded border ${borderTone} ${cardInnerBg} text-[10px] font-mono font-bold uppercase tracking-wider mb-2`}>
-              <History className="w-3.5 h-3.5" />
-              COMMUNICATION LEDGER
+  const getMessages = (record) => {
+    if (
+      Array.isArray(record?.messages) &&
+      record.messages.length > 0
+    ) {
+      return record.messages;
+    }
+
+    return [];
+  };
+
+  const getSpeakerLabel = (message) => {
+    if (message?.sender === 'user') {
+      return 'YOU';
+    }
+
+    if (message?.sender === 'staff') {
+      return 'STAFF';
+    }
+
+    return 'OTHER PERSON';
+  };
+
+  const getSpeakerStyle = (message) => {
+    if (message?.sender === 'user') {
+      return isDarkTheme
+        ? 'border-blue-400/30 bg-blue-400/10'
+        : 'border-blue-200 bg-blue-50';
+    }
+
+    return isDarkTheme
+      ? 'border-emerald-400/30 bg-emerald-400/10'
+      : 'border-emerald-200 bg-emerald-50';
+  };
+
+  // ---------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------
+  return (
+    <div
+      className="min-h-screen"
+      style={{
+        background: bgCanvas,
+        color: textPrimary
+      }}
+    >
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+
+        {/* HEADER */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+          <div className="flex items-start gap-3">
+            <Link
+              href="/communication-hub"
+              className="mt-1 rounded-xl p-2 transition hover:bg-black/5 dark:hover:bg-white/5"
+              aria-label="Back to Communication Hub"
+            >
+              <ArrowLeft size={22} />
+            </Link>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <History size={24} />
+                <h1 className="text-2xl font-black sm:text-3xl">
+                  Request History
+                </h1>
+              </div>
+
+              <p
+                className="mt-1 max-w-3xl text-sm"
+                style={{ color: textSecondary }}
+              >
+                A local record of your completed communication
+                workflows. Pay attention to the verification
+                badges to see which details were explicitly
+                confirmed by staff.
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">Request History</h1>
-            <p className={`text-xs sm:text-sm mt-1 max-w-sm leading-relaxed font-medium ${textSecondary}`}>
-              A local record of your completed communication workflows. Pay attention to the verification badges to see which details were explicitly confirmed by staff.
-            </p>
           </div>
+
           {records.length > 0 && (
-            <button onClick={clearAll} className={`w-full sm:w-auto p-2 rounded-lg border ${borderTone} ${cardInnerBg} hover:opacity-80 transition-all text-xs font-mono font-bold flex items-center justify-center gap-1.5 shrink-0`}>
-              <Trash2 className="w-3.5 h-3.5" /> <span>Clear All</span>
+            <button
+              onClick={clearAll}
+              className="flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition hover:opacity-80"
+              style={{
+                borderColor: borderTone,
+                color: textPrimary
+              }}
+            >
+              <Trash2 size={16} />
+              Clear All
             </button>
           )}
-        </header>
+        </div>
 
+        {/* EMPTY STATE */}
         {records.length === 0 ? (
-          <div className={`p-10 rounded-xl border border-dashed ${borderTone} ${cardInnerBg} text-center space-y-3`}>
-            <Calendar className="w-8 h-8 mx-auto opacity-50" />
-            <h3 className="font-bold uppercase tracking-tight">No Requests Found</h3>
-            <p className={`text-xs font-mono ${textSecondary}`}>Completed communication sessions will appear here.</p>
+          <div
+            className="rounded-2xl border p-10 text-center"
+            style={{
+              background: cardBg,
+              borderColor: borderTone
+            }}
+          >
+            <History
+              size={42}
+              className="mx-auto mb-4 opacity-40"
+            />
+
+            <h2 className="text-lg font-black">
+              No communication records
+            </h2>
+
+            <p
+              className="mt-2 text-sm"
+              style={{ color: textSecondary }}
+            >
+              Completed communication workflows will appear
+              here on this device.
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
+
             {records.map((record) => {
-              const isExpanded = expandedId === record.id;
-              
-              // Fallback logic for older records that might not have this flag
-              const isVerified = record.verifiedByStaff === true; 
-              
+              const expanded = expandedId === record.id;
+              const entities = record?.entities || {};
+              const conversation =
+                isConversationRecord(record);
+
+              const messages = getMessages(record);
+
               return (
-                <div key={record.id} className={`rounded-xl border ${borderTone} ${cardBg} shadow-sm overflow-hidden transition-all`}>
-                  {/* Summary Bar */}
-                  <div 
-                    onClick={() => setExpandedId(isExpanded ? null : record.id)}
-                    className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors gap-3"
+                <div
+                  key={record.id}
+                  className="overflow-hidden rounded-2xl border"
+                  style={{
+                    background: cardBg,
+                    borderColor: borderTone
+                  }}
+                >
+
+                  {/* RECORD HEADER */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedId(
+                        expanded ? null : record.id
+                      )
+                    }
+                    className="w-full text-left"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                        <span className={`text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase tracking-wider ${accentSolid}`}>
-                          {record.domain}
-                        </span>
-                        <span className="text-[10px] font-mono font-bold opacity-60 whitespace-nowrap">
-                          {record.date} • {record.time}
-                        </span>
-                      </div>
-                      <h3 className="font-black font-sans uppercase tracking-tight text-sm sm:text-base truncate pr-2">
-                        {record.title}
-                      </h3>
-                    </div>
-                    
-                    <div className="flex items-center justify-between w-full sm:w-auto gap-3">
-                      {/* 1. Verification Trust Badge on the collapsed view */}
-                      {record.intent === 'live_chat' ? (
-                        <div className={`flex items-center gap-1 text-[9px] sm:text-[10px] font-mono font-bold uppercase px-2 py-1 rounded border ${isVerified ? 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400' : `${borderTone}${cardInnerBg} opacity-70`}`}>
-                          {isVerified ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                          <span>{isVerified ? 'Staff Verified' : 'User Saved'}</span>
-                        </div>
-                      ) : (
-                        <div className={`flex items-center gap-1 text-[9px] sm:text-[10px] font-mono font-bold uppercase px-2 py-1 rounded border ${borderTone} ${cardInnerBg}`}>
-                           <ShieldCheck className="w-3 h-3 text-[#655A7C]" />
-                           <span>Form Sent</span>
-                        </div>
-                      )}
-                      
-                      {isExpanded ? <ChevronUp className="w-5 h-5 opacity-60 shrink-0" /> : <ChevronDown className="w-5 h-5 opacity-60 shrink-0" />}
-                    </div>
-                  </div>
+                    <div className="p-4 sm:p-5">
 
-                  {/* Expanded Detail View */}
-                  {isExpanded && (
-                    <div className={`p-5 pt-0 border-t ${borderTone} bg-black/5 dark:bg-white/5 animate-in slide-in-from-top-2 duration-200`}>
-                      <div className="mt-5 space-y-5">
-                        
-                        {/* 2. Structured Rendering for Live Chat Summaries */}
-                        {record.intent === 'live_chat' ? (
-                          <div className="space-y-4">
-                             {/* User Submission */}
-                             <div>
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1.5 flex items-center gap-1.5">
-                                   <MessageSquare className="w-3 h-3" /> Your Context
-                                </span>
-                                <div className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} space-y-2`}>
-                                   <div>
-                                     <span className="text-[9px] font-mono font-bold uppercase opacity-50 block">What you asked</span>
-                                     <p className="text-sm font-bold">{record.entities['What I Asked']}</p>
-                                   </div>
-                                </div>
-                             </div>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 
-                             {/* Staff Resolution & Next Steps */}
-                             <div>
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1.5 flex items-center gap-1.5">
-                                   <ShieldCheck className="w-3 h-3" /> Staff Resolution & Next Steps
-                                </span>
-                                <div className={`p-3.5 rounded-xl border-2 ${isVerified ? 'border-green-500/50' : 'border-[#655A7C]'} ${cardBg} space-y-2.5 relative`}>
-                                   
-                                   {isVerified && (
-                                     <div className="absolute -top-2.5 right-3 bg-green-500 text-white text-[9px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
-                                        <CheckCircle2 className="w-3 h-3" /> VERIFIED
-                                     </div>
-                                   )}
+                        <div className="min-w-0">
 
-                                   <div>
-                                     <span className="text-[9px] font-mono font-bold uppercase opacity-50 block">Staff Reply</span>
-                                     <p className="text-sm font-black">{record.entities['What They Said']}</p>
-                                   </div>
-                                   <div className="pt-2 border-t border-black/10 dark:border-white/10">
-                                     <span className="text-[9px] font-mono font-bold uppercase opacity-50 block">Confirmed Action</span>
-                                     <p className="text-sm font-bold text-[#655A7C] dark:text-[#AB92BF]">{record.staffResponse}</p>
-                                   </div>
-                                   {record.entities['Target Date'] && record.entities['Target Date'] !== 'N/A' && (
-                                     <div>
-                                        <span className="text-[9px] font-mono font-bold uppercase opacity-50 block">Target Date</span>
-                                        <p className="text-xs font-mono font-bold">{record.entities['Target Date']}</p>
-                                     </div>
-                                   )}
-                                </div>
-                             </div>
+                          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-bold">
+
+                            <span
+                              className="uppercase tracking-wider"
+                              style={{ color: accentSolid }}
+                            >
+                              {record.domain ||
+                                'Communication'}
+                            </span>
+
+                            <span
+                              className="opacity-50"
+                            >
+                              •
+                            </span>
+
+                            <span
+                              className="flex items-center gap-1"
+                              style={{
+                                color: textSecondary
+                              }}
+                            >
+                              <Calendar size={13} />
+                              {record.date ||
+                                (record.timestamp
+                                  ? new Date(
+                                      record.timestamp
+                                    ).toLocaleDateString()
+                                  : '')}
+
+                              {record.time && (
+                                <>
+                                  <span className="opacity-50">
+                                    •
+                                  </span>
+                                  {record.time}
+                                </>
+                              )}
+                            </span>
+
+                            {conversation && (
+                              <span className="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
+                                Conversation
+                              </span>
+                            )}
                           </div>
-                        ) : (
-                          // Fallback for structured Form records AND Granular Conversation transcripts
-                          <div className="space-y-3">
-                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block">Submitted Parameters</span>
-                            
-                            {/* Changed grid layout to 1 column to give chat transcripts full width */}
-                            <div className="grid grid-cols-1 gap-2">
-                              {Object.entries(record.entities).map(([key, val]) => (
-                                val && (
-                                  <div key={key} className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} text-xs font-mono`}>
-                                    <span className="opacity-60 block text-[9px] uppercase mb-0.5">{key}</span>
-                                    {/* 
-                                        BUG FIX: Changed `truncate` to `whitespace-pre-wrap break-words` 
-                                        so long chat transcripts display fully and preserve new lines.
-                                    */}
-                                    <span className="font-bold block whitespace-pre-wrap break-words">{val}</span>
-                                  </div>
-                                )
-                              ))}
-                            </div>
-                            {record.staffResponse && (
-                              <div className={`p-4 rounded-xl border-2 border-[#655A7C] ${cardBg} mt-4`}>
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block mb-1">
-                                  Staff Resolution
+
+                          <h2 className="text-base font-black sm:text-lg">
+                            {record.title ||
+                              record.intent ||
+                              'Communication Record'}
+                          </h2>
+
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+
+                            {record.status && (
+                              <span className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold">
+                                <CheckCircle2 size={13} />
+                                {record.status ===
+                                'Completed'
+                                  ? 'User Saved'
+                                  : record.status}
+                              </span>
+                            )}
+
+                            {conversation &&
+                              Array.isArray(
+                                record.messages
+                              ) && (
+                                <span
+                                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold"
+                                  style={{
+                                    background: isDarkTheme
+                                      ? 'rgba(255,255,255,0.06)'
+                                      : 'rgba(0,0,0,0.04)',
+                                    color: textSecondary
+                                  }}
+                                >
+                                  <MessageSquare
+                                    size={13}
+                                  />
+                                  {record.messages.length}{' '}
+                                  messages
                                 </span>
-                                <p className="text-sm font-black leading-snug">
-                                  "{record.staffResponse}"
+                              )}
+
+                          </div>
+                        </div>
+
+                        <div className="shrink-0">
+                          {expanded ? (
+                            <ChevronUp size={22} />
+                          ) : (
+                            <ChevronDown size={22} />
+                          )}
+                        </div>
+
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* EXPANDED CONTENT */}
+                  {expanded && (
+                    <div
+                      className="border-t px-4 py-5 sm:px-5"
+                      style={{
+                        borderColor: borderTone,
+                        background: cardInnerBg
+                      }}
+                    >
+
+                      {/* ================================================= */}
+                      {/* TWO-WAY / CONVERSATION RECORD */}
+                      {/* ================================================= */}
+                      {conversation &&
+                      record.intent !== 'live_chat' ? (
+                        <div className="space-y-5">
+
+                          {/* Conversation metadata */}
+                          <div
+                            className="rounded-xl border p-4"
+                            style={{
+                              borderColor: borderTone,
+                              background: cardBg
+                            }}
+                          >
+                            <div className="mb-3 flex items-center gap-2">
+                              <MessageSquare size={18} />
+                              <h3 className="font-black">
+                                Conversation Details
+                              </h3>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-3">
+
+                              <div>
+                                <p
+                                  className="text-[10px] font-black uppercase tracking-wider"
+                                  style={{
+                                    color: textSecondary
+                                  }}
+                                >
+                                  Context
                                 </p>
+                                <p className="mt-1 text-sm font-bold">
+                                  {record.domain ||
+                                    record.context ||
+                                    'General Interaction'}
+                                </p>
+                              </div>
+
+                              <div>
+                                <p
+                                  className="text-[10px] font-black uppercase tracking-wider"
+                                  style={{
+                                    color: textSecondary
+                                  }}
+                                >
+                                  Turns
+                                </p>
+                                <p className="mt-1 text-sm font-bold">
+                                  {record.messageCount ||
+                                    messages.length ||
+                                    entities[
+                                      'Turns Count'
+                                    ] ||
+                                    '0'}
+                                </p>
+                              </div>
+
+                              <div>
+                                <p
+                                  className="text-[10px] font-black uppercase tracking-wider"
+                                  style={{
+                                    color: textSecondary
+                                  }}
+                                >
+                                  Storage
+                                </p>
+                                <p className="mt-1 text-sm font-bold">
+                                  This device
+                                </p>
+                              </div>
+
+                            </div>
+                          </div>
+
+                          {/* COMPLETE TRANSCRIPT */}
+                          <div>
+                            <div className="mb-3 flex items-center gap-2">
+                              <MessageSquare size={18} />
+                              <h3 className="font-black">
+                                Complete Conversation Transcript
+                              </h3>
+                            </div>
+
+                            {messages.length > 0 ? (
+                              <div className="space-y-3">
+
+                                {messages.map(
+                                  (message, index) => (
+                                    <div
+                                      key={
+                                        message?.id ||
+                                        `message-${index}`
+                                      }
+                                      className={`rounded-2xl border p-4 ${getSpeakerStyle(
+                                        message
+                                      )}`}
+                                    >
+
+                                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-black uppercase tracking-wider">
+                                            {getSpeakerLabel(
+                                              message
+                                            )}
+                                          </span>
+
+                                          {message?.understanding ===
+                                            'understood' && (
+                                            <span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold">
+                                              <CheckCircle2
+                                                size={11}
+                                              />
+                                              Understood
+                                            </span>
+                                          )}
+
+                                          {message?.understanding ===
+                                            'unclear' && (
+                                            <span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold">
+                                              <AlertCircle
+                                                size={11}
+                                              />
+                                              Unclear
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {message?.timestamp && (
+                                          <span
+                                            className="text-[11px]"
+                                            style={{
+                                              color: textSecondary
+                                            }}
+                                          >
+                                            {message.timestamp}
+                                          </span>
+                                        )}
+
+                                      </div>
+
+                                      <p className="whitespace-pre-wrap text-base font-semibold leading-relaxed">
+                                        {message?.text ||
+                                          'Message unavailable.'}
+                                      </p>
+
+                                    </div>
+                                  )
+                                )}
+
+                              </div>
+                            ) : record.transcript ? (
+                              <div
+                                className="whitespace-pre-wrap rounded-xl border p-4 text-sm leading-relaxed"
+                                style={{
+                                  borderColor: borderTone,
+                                  background: cardBg
+                                }}
+                              >
+                                {record.transcript}
+                              </div>
+                            ) : (
+                              <div
+                                className="rounded-xl border p-4 text-sm"
+                                style={{
+                                  borderColor: borderTone,
+                                  color: textSecondary
+                                }}
+                              >
+                                No transcript was stored for
+                                this record.
                               </div>
                             )}
                           </div>
-                        )}
 
-                        {/* Actions */}
-                        <div className="flex justify-end pt-3 border-t border-black/10 dark:border-white/10">
-                          <button 
-                            onClick={() => deleteRecord(record.id)}
-                            className="text-xs font-mono font-bold text-red-500 hover:opacity-75 transition-opacity flex items-center gap-1.5 px-2 py-1"
+                          {/* CONFIRMED FACTS */}
+                          <div
+                            className="rounded-xl border p-4"
+                            style={{
+                              borderColor: borderTone,
+                              background: cardBg
+                            }}
                           >
-                            <Trash2 className="w-3.5 h-3.5" /> Delete Record
-                          </button>
+                            <div className="mb-3 flex items-center gap-2">
+                              <ShieldCheck size={18} />
+                              <h3 className="font-black">
+                                Confirmed Facts
+                              </h3>
+                            </div>
+
+                            {Array.isArray(
+                              record.confirmedFacts
+                            ) &&
+                            record.confirmedFacts.length > 0 ? (
+                              <ul className="space-y-2">
+                                {record.confirmedFacts.map(
+                                  (fact, index) => (
+                                    <li
+                                      key={index}
+                                      className="flex gap-2 text-sm"
+                                    >
+                                      <CheckCircle2
+                                        size={16}
+                                        className="mt-0.5 shrink-0"
+                                      />
+                                      <span>{fact}</span>
+                                    </li>
+                                  )
+                                )}
+                              </ul>
+                            ) : (
+                              <p
+                                className="text-sm"
+                                style={{
+                                  color: textSecondary
+                                }}
+                              >
+                                None
+                              </p>
+                            )}
+                          </div>
+
+                          {/* UNRESOLVED */}
+                          <div
+                            className="rounded-xl border p-4"
+                            style={{
+                              borderColor: borderTone,
+                              background: cardBg
+                            }}
+                          >
+                            <div className="mb-3 flex items-center gap-2">
+                              <AlertCircle size={18} />
+                              <h3 className="font-black">
+                                Unresolved Details
+                              </h3>
+                            </div>
+
+                            {Array.isArray(
+                              record.unresolvedQuestions
+                            ) &&
+                            record.unresolvedQuestions.length >
+                              0 ? (
+                              <ul className="space-y-2">
+                                {record.unresolvedQuestions.map(
+                                  (item, index) => (
+                                    <li
+                                      key={index}
+                                      className="text-sm"
+                                    >
+                                      {item}
+                                    </li>
+                                  )
+                                )}
+                              </ul>
+                            ) : (
+                              <p
+                                className="text-sm"
+                                style={{
+                                  color: textSecondary
+                                }}
+                              >
+                                None
+                              </p>
+                            )}
+                          </div>
+
                         </div>
+                      ) : record.intent ===
+                        'live_chat' ? (
+
+                        /* ================================================= */
+                        /* OLD LIVE CHAT RECORDS */
+                        /* ================================================= */
+                        <div className="space-y-4">
+
+                          <div>
+                            <h3 className="mb-2 font-black">
+                              Your Context
+                            </h3>
+
+                            <div
+                              className="rounded-xl border p-4 text-sm"
+                              style={{
+                                borderColor: borderTone,
+                                background: cardBg
+                              }}
+                            >
+                              {record.capturedText ||
+                                record.userMessage ||
+                                'No context captured.'}
+                            </div>
+                          </div>
+
+                          <div>
+                            <h3 className="mb-2 font-black">
+                              Staff Resolution & Next Steps
+                            </h3>
+
+                            <div
+                              className="rounded-xl border p-4 text-sm"
+                              style={{
+                                borderColor: borderTone,
+                                background: cardBg
+                              }}
+                            >
+                              {record.staffResponse ||
+                                'No staff response recorded.'}
+                            </div>
+                          </div>
+
+                        </div>
+                      ) : (
+
+                        /* ================================================= */
+                        /* STANDARD FORM RECORD */
+                        /* ================================================= */
+                        <div className="space-y-5">
+
+                          <div>
+                            <h3 className="mb-3 font-black">
+                              Submitted Parameters
+                            </h3>
+
+                            <div
+                              className="overflow-hidden rounded-xl border"
+                              style={{
+                                borderColor: borderTone,
+                                background: cardBg
+                              }}
+                            >
+                              {Object.keys(entities).length >
+                              0 ? (
+                                <div className="divide-y">
+                                  {Object.entries(
+                                    entities
+                                  ).map(
+                                    ([key, value]) => (
+                                      <div
+                                        key={key}
+                                        className="grid gap-1 p-3 sm:grid-cols-[180px_1fr] sm:gap-4"
+                                        style={{
+                                          borderColor:
+                                            borderTone
+                                        }}
+                                      >
+                                        <span
+                                          className="text-xs font-black uppercase tracking-wider"
+                                          style={{
+                                            color:
+                                              textSecondary
+                                          }}
+                                        >
+                                          {key}
+                                        </span>
+
+                                        <span className="whitespace-pre-wrap text-sm font-semibold">
+                                          {String(
+                                            value ?? '—'
+                                          )}
+                                        </span>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              ) : (
+                                <div
+                                  className="p-4 text-sm"
+                                  style={{
+                                    color: textSecondary
+                                  }}
+                                >
+                                  No submitted parameters
+                                  recorded.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {record.confirmedFacts && (
+                            <div>
+                              <h3 className="mb-2 font-black">
+                                Confirmed Facts
+                              </h3>
+
+                              <div
+                                className="rounded-xl border p-4 text-sm"
+                                style={{
+                                  borderColor: borderTone,
+                                  background: cardBg
+                                }}
+                              >
+                                {Array.isArray(
+                                  record.confirmedFacts
+                                )
+                                  ? record.confirmedFacts.join(
+                                      '\n'
+                                    )
+                                  : String(
+                                      record.confirmedFacts
+                                    )}
+                              </div>
+                            </div>
+                          )}
+
+                          {record.unresolvedQuestions && (
+                            <div>
+                              <h3 className="mb-2 font-black">
+                                Unresolved Details
+                              </h3>
+
+                              <div
+                                className="rounded-xl border p-4 text-sm"
+                                style={{
+                                  borderColor: borderTone,
+                                  background: cardBg
+                                }}
+                              >
+                                {Array.isArray(
+                                  record.unresolvedQuestions
+                                )
+                                  ? record.unresolvedQuestions.join(
+                                      '\n'
+                                    )
+                                  : String(
+                                      record.unresolvedQuestions
+                                    )}
+                              </div>
+                            </div>
+                          )}
+
+                          {record.staffResponse && (
+                            <div>
+                              <h3 className="mb-2 font-black">
+                                Captured Response
+                              </h3>
+
+                              <div
+                                className="rounded-xl border p-4 text-sm"
+                                style={{
+                                  borderColor: borderTone,
+                                  background: cardBg
+                                }}
+                              >
+                                {record.staffResponse}
+                              </div>
+                            </div>
+                          )}
+
+                        </div>
+                      )}
+
+                      {/* DELETE */}
+                      <div
+                        className="mt-6 flex justify-end border-t pt-4"
+                        style={{
+                          borderColor: borderTone
+                        }}
+                      >
+                        <button
+                          onClick={() =>
+                            deleteRecord(record.id)
+                          }
+                          className="flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold transition hover:opacity-80"
+                          style={{
+                            borderColor: borderTone
+                          }}
+                        >
+                          <Trash2 size={16} />
+                          Delete Record
+                        </button>
                       </div>
+
                     </div>
                   )}
                 </div>
@@ -233,7 +894,28 @@ export default function RequestHistory() {
             })}
           </div>
         )}
-      </main>
+
+        {/* LOCAL STORAGE NOTICE */}
+        <div
+          className="mt-6 rounded-xl border p-4 text-xs leading-relaxed"
+          style={{
+            borderColor: borderTone,
+            color: textSecondary
+          }}
+        >
+          <div className="flex gap-2">
+            <ShieldCheck
+              size={16}
+              className="mt-0.5 shrink-0"
+            />
+            <p>
+              Communication history is stored locally in this
+              browser. It is not automatically synchronized to
+              a remote server.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

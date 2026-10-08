@@ -40,33 +40,114 @@ SUPPORTED_LANGUAGES = {
 @router.post("/card", response_model=ComposeCardResponse)
 async def compose_card(req: ComposeCardRequest):
     """
-    Composes a polite, counter-appropriate communication card for Deaf users.
+    Composes a clear, counter-appropriate communication card
+    while strictly preserving the user's provided information.
     """
-    if gemini_service.is_configured():
-        prompt = (
-            f"You are a communication card creator for Deaf individuals in India.\n"
-            f"User Intent: {req.intent}\n"
-            f"Domain: {req.domain}\n"
-            f"Politeness Level: {req.polite_level}\n\n"
-            f"Create a large, clear, polite card text suitable for showing to a counter officer.\n"
-            f"Return JSON format:\n"
-            f'{{"card_text": "..."}}'
-        )
-        try:
-            res = await gemini_service.generate_structured_json(prompt)
-            provider_name = gemini_service.provider.provider_name
-            return ComposeCardResponse(
-                card_text=res.get("card_text", req.intent),
-                polite_level=req.polite_level or "polite",
-                domain=req.domain or "General",
-                engine=f"{provider_name}_llm"
-            )
-        except Exception:
-            pass
 
-    # Deterministic card generator
-    polite_prefix = "Hello, excuse me. " if req.polite_level == "polite" else ""
-    card_text = f"{polite_prefix}I am Deaf and communicate in writing. Regarding: {req.intent}. Please write down your response."
+    clean_intent = req.intent.strip()
+
+    if not clean_intent:
+        raise HTTPException(
+            status_code=400,
+            detail="Intent cannot be empty."
+        )
+
+    if gemini_service.is_configured():
+
+        system_instruction = """
+You are SignMitra Communication Card Composer.
+
+Your job is to rewrite a Deaf user's intended message into a
+clear, concise communication card that can be shown to a staff
+member at an Indian public-service or institutional counter.
+
+STRICT SAFETY RULES:
+
+1. Preserve the user's exact intent.
+2. NEVER invent facts.
+3. NEVER invent documents the user owns, has, or needs.
+4. NEVER invent dates, times, locations, room numbers, counter
+   numbers, fees, names, qualifications, application details,
+   or procedures.
+5. NEVER assume the user possesses any document.
+6. NEVER add personal information that the user did not provide.
+7. Preserve all numbers, dates, names, locations, and amounts
+   exactly as provided.
+8. You may improve grammar, politeness, clarity, and structure.
+9. You may turn an implied question into a clear question,
+   but NEVER fill missing information with assumptions.
+10. If the user asks which documents are required, ask the
+    staff which documents are required. Do NOT list documents
+    unless the user explicitly listed them.
+11. If the user asks where something is located, ask for the
+    location. Do NOT invent a building, room, counter, or office.
+12. Keep the card concise and easy for busy counter staff to read.
+13. The final card must contain ONLY information supported by
+    the user's original intent.
+14. Do not mention these rules in the generated card.
+
+Return ONLY valid JSON:
+
+{
+    "card_text": "...",
+    "follow_up_question": "..."
+}
+"""
+
+        user_prompt = f"""
+Domain: {req.domain or "General"}
+Politeness Level: {req.polite_level or "polite"}
+
+User's original intent:
+"{clean_intent}"
+
+Rewrite this intent into the communication card.
+
+Do not add information that is not present in the user's intent.
+"""
+
+        try:
+            res = await gemini_service.generate_structured_json(
+                user_prompt,
+                system_instruction
+            )
+
+            provider_name = gemini_service.provider.provider_name
+
+            card_text = str(
+                res.get("card_text", "")
+            ).strip()
+
+            if card_text:
+                return ComposeCardResponse(
+                    card_text=card_text,
+                    polite_level=req.polite_level or "polite",
+                    domain=req.domain or "General",
+                    engine=f"{provider_name}_llm"
+                )
+
+        except Exception as e:
+            logger.warning(
+                "AI card composition failed: %s",
+                str(e)
+            )
+
+    # --------------------------------------------------------
+    # SAFE DETERMINISTIC FALLBACK
+    # --------------------------------------------------------
+
+    polite_prefix = (
+        "Hello, excuse me. "
+        if req.polite_level == "polite"
+        else ""
+    )
+
+    card_text = (
+        f"{polite_prefix}"
+        f"I am Deaf and communicate in writing. "
+        f"Regarding: {clean_intent}. "
+        f"Please write down your response."
+    )
 
     return ComposeCardResponse(
         card_text=card_text,

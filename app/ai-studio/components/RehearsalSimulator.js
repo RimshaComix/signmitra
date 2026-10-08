@@ -19,65 +19,91 @@ const SCENARIOS = [
     id: 'College Office',
     label: 'College Administration',
     icon: GraduationCap,
-    desc: 'Verify fee receipts, submit exam forms, or request verified transcripts.',
+    desc: 'Practice student-service conversations at a college administration desk.',
     initialStaff:
       'Next please. Keep your student ID card and original fee slip ready on the counter.',
     checklist: [
-      'Carry photo identification',
-      'Prepare an opening communication card introducing your visual/written preference',
-      'Request a stamped acknowledgment copy before leaving the counter'
-    ]
+      'Clearly state what you need from the college office',
+      'Keep any relevant student or document details ready',
+      'Ask staff to write down important requirements or next steps'
+    ],
+    fallback: {
+      text: 'Please tell me what you need help with at the college office.',
+      demeanor: 'College Office Staff',
+      suggestions: [
+        'I need help with an exam-related request.',
+        'Could you please tell me what documents I need?',
+        'Could you please write down the next step?'
+      ]
+    }
   },
   {
     id: 'Bank Branch',
     label: 'Bank Counter / KYC',
     icon: Landmark,
-    desc: 'Resolve signature mismatch, update KYC address, or deposit cheques.',
+    desc: 'Practice banking, KYC, account, document, and counter-service conversations.',
     initialStaff:
       'Please submit Form 2A along with self-attested copies of your PAN and Aadhaar.',
     checklist: [
-      'Carry required identity and KYC documents',
-      'Keep self-attested copies ready if required',
-      'Request a receipt or acknowledgment for submitted documents'
-    ]
+      'Clearly state the banking service you need',
+      'Keep relevant account or identity details ready',
+      'Ask staff to write down important requirements or next steps'
+    ],
+    fallback: {
+      text: 'Please tell me what banking service you need help with.',
+      demeanor: 'Bank Counter Staff',
+      suggestions: [
+        'I need help with a banking request.',
+        'Could you please tell me what documents I need?',
+        'Could I get an acknowledgement for my submission?'
+      ]
+    }
   },
   {
     id: 'Hospital OPD',
     label: 'Hospital Triage Desk',
     icon: HeartPulse,
-    desc: 'Register for doctor consultation, obtain lab token, or collect medication.',
+    desc: 'Practice OPD, registration, appointment, lab, and patient-service conversations.',
     initialStaff:
       'Take this green slip to Room 104 for preliminary blood pressure check.',
     checklist: [
-      'Carry photo identification and relevant medical documents',
-      'Keep the registration or appointment details accessible',
-      'Confirm the room, token, and next step before leaving the desk'
-    ]
+      'Clearly state what assistance you need',
+      'Keep relevant patient or registration details ready',
+      'Ask staff to write down the next step or location'
+    ],
+    fallback: {
+      text: 'Please tell me what you need help with at the hospital desk.',
+      demeanor: 'Hospital Desk Staff',
+      suggestions: [
+        'I need help with my OPD registration.',
+        'Could you please tell me what I should do next?',
+        'Could you please write down the next step?'
+      ]
+    }
   },
   {
     id: 'Public Transit',
     label: 'Railway / Transit Help Desk',
     icon: Bus,
-    desc: 'Request boarding assistance or ask for platform indicator guidance.',
+    desc: 'Practice destinations, tickets, platforms, schedules, and boarding assistance.',
     initialStaff:
       'Suburban trains for Tambaram leave from Platform 3. The next fast local is at 10:45 AM.',
     checklist: [
-      'Keep your ticket or travel details accessible',
-      'Confirm the platform and destination before proceeding',
-      'Request a visual alert if you need help noticing announcements'
-    ]
+      'Clearly state your destination or travel requirement',
+      'Confirm important travel information before proceeding',
+      'Ask staff to write down platform or other important instructions'
+    ],
+    fallback: {
+      text: 'Please tell me what travel assistance you need.',
+      demeanor: 'Transit Help Desk Staff',
+      suggestions: [
+        'Could you please help me with my destination?',
+        'Could you please confirm the platform for my train?',
+        'Could you please write down the travel information?'
+      ]
+    }
   }
 ];
-
-const DEFAULT_FALLBACK_REPLY = {
-  text: 'Please submit your documents at the counter and take a receipt.',
-  demeanor: 'Fallback Practice Response',
-  suggestions: [
-    'Which counter should I go to?',
-    'Is there any fee?',
-    'Could you please write that down?'
-  ]
-};
 
 export default function RehearsalSimulator() {
   const {
@@ -89,7 +115,8 @@ export default function RehearsalSimulator() {
     isDarkTheme
   } = useTheme();
 
-  const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0]);
+  const [selectedScenario, setSelectedScenario] =
+    useState(SCENARIOS[0]);
 
   const [turns, setTurns] = useState([
     {
@@ -105,7 +132,8 @@ export default function RehearsalSimulator() {
   const [rehearsalChecklist, setRehearsalChecklist] =
     useState(SCENARIOS[0].checklist);
 
-  const [simulationError, setSimulationError] = useState(false);
+  const [simulationError, setSimulationError] =
+    useState(false);
 
   // ---------------------------------------------------------------------------
   // Scenario selection
@@ -149,6 +177,11 @@ export default function RehearsalSimulator() {
 
     const updatedTurns = [...turns, userTurn];
 
+    const conversationHistory = updatedTurns.map((turn) => ({
+      role: turn.sender === 'staff' ? 'staff' : 'user',
+      text: turn.text
+    }));
+
     setTurns(updatedTurns);
     setUserReply('');
     setIsSimulating(true);
@@ -163,7 +196,9 @@ export default function RehearsalSimulator() {
         body: JSON.stringify({
           action: 'simulate_rehearsal',
           scenario: selectedScenario.id,
-          userTurn: cleanText
+          scenario_id: selectedScenario.id,
+          userTurn: cleanText,
+          history: conversationHistory
         })
       });
 
@@ -178,9 +213,12 @@ export default function RehearsalSimulator() {
       if (!response.ok) {
         throw new Error(
           data?.error ||
+            data?.detail ||
             `Rehearsal simulation failed with status ${response.status}`
         );
       }
+
+      const fallback = selectedScenario.fallback;
 
       const staffTurn = {
         sender: 'staff',
@@ -188,37 +226,53 @@ export default function RehearsalSimulator() {
           typeof data?.staffResponse === 'string' &&
           data.staffResponse.trim()
             ? data.staffResponse.trim()
-            : DEFAULT_FALLBACK_REPLY.text,
+            : typeof data?.staff_response === 'string' &&
+                data.staff_response.trim()
+              ? data.staff_response.trim()
+              : fallback.text,
+
         demeanor:
           typeof data?.staffDemeanor === 'string' &&
           data.staffDemeanor.trim()
             ? data.staffDemeanor.trim()
-            : 'Desk Staff',
-        suggestions: Array.isArray(data?.suggestedUserReplies)
-          ? data.suggestedUserReplies.filter(
-              (reply) =>
-                typeof reply === 'string' && reply.trim()
-            )
-          : []
+            : typeof data?.staff_demeanor === 'string' &&
+                data.staff_demeanor.trim()
+              ? data.staff_demeanor.trim()
+              : fallback.demeanor,
+
+        suggestions: Array.isArray(
+          data?.suggestedUserReplies
+        )
+          ? data.suggestedUserReplies
+              .filter(
+                (reply) =>
+                  typeof reply === 'string' &&
+                  reply.trim()
+              )
+              .slice(0, 3)
+          : fallback.suggestions
       };
 
-      setTurns([...updatedTurns, staffTurn]);
+      setTurns([
+        ...updatedTurns,
+        staffTurn
+      ]);
 
-      if (Array.isArray(data?.rehearsalChecklist)) {
-        const validChecklist = data.rehearsalChecklist.filter(
-          (item) =>
-            typeof item === 'string' && item.trim()
-        );
-
-        if (validChecklist.length > 0) {
-          setRehearsalChecklist(validChecklist);
-        }
-      }
+      /*
+       * Checklist remains deterministic.
+       *
+       * The LLM is never allowed to replace preparation
+       * reminders because generated checklist items could
+       * introduce unsupported documents, fees, procedures,
+       * or guarantees.
+       */
     } catch (error) {
       console.warn(
         'Rehearsal simulation provider unavailable:',
         error
       );
+
+      const fallback = selectedScenario.fallback;
 
       setSimulationError(true);
 
@@ -226,9 +280,9 @@ export default function RehearsalSimulator() {
         ...updatedTurns,
         {
           sender: 'staff',
-          text: DEFAULT_FALLBACK_REPLY.text,
-          demeanor: DEFAULT_FALLBACK_REPLY.demeanor,
-          suggestions: DEFAULT_FALLBACK_REPLY.suggestions
+          text: fallback.text,
+          demeanor: fallback.demeanor,
+          suggestions: fallback.suggestions
         }
       ]);
     } finally {
@@ -251,7 +305,10 @@ export default function RehearsalSimulator() {
       }
     ]);
 
-    setRehearsalChecklist(selectedScenario.checklist);
+    setRehearsalChecklist(
+      selectedScenario.checklist
+    );
+
     setUserReply('');
     setSimulationError(false);
   };
@@ -271,7 +328,7 @@ export default function RehearsalSimulator() {
           </span>
 
           <span className="text-xs font-mono opacity-70">
-            Interactive Roleplay (Safe Sandbox)
+            Interactive Roleplay · Safe Sandbox
           </span>
         </div>
 
@@ -282,9 +339,11 @@ export default function RehearsalSimulator() {
         <p
           className={`text-xs sm:text-sm font-medium ${textSecondary}`}
         >
-          Practice typical counter conversations before real-life
-          appointments. Simulated staff responses help you rehearse
-          possible questions, documents, and next steps.
+          Practice conversations across common college,
+          banking, hospital, and transit situations before
+          real-life interactions. Simulated staff responses
+          help you rehearse how to ask questions, clarify
+          information, and confirm next steps.
         </p>
       </div>
 
@@ -292,13 +351,16 @@ export default function RehearsalSimulator() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         {SCENARIOS.map((scenario) => {
           const Icon = scenario.icon;
+
           const isSelected =
             selectedScenario.id === scenario.id;
 
           return (
             <button
               key={scenario.id}
-              onClick={() => handleSelectScenario(scenario)}
+              onClick={() =>
+                handleSelectScenario(scenario)
+              }
               disabled={isSimulating}
               className={`p-3.5 rounded-xl border text-left transition-all ${
                 isSelected
@@ -316,7 +378,7 @@ export default function RehearsalSimulator() {
                 {scenario.label}
               </div>
 
-              <p className="text-[10px] opacity-60 line-clamp-1 mt-0.5">
+              <p className="text-[10px] opacity-60 line-clamp-2 mt-0.5">
                 {scenario.desc}
               </p>
             </button>
@@ -362,8 +424,11 @@ export default function RehearsalSimulator() {
 
             {/* Turns */}
             {turns.map((turn, index) => {
-              const isStaff = turn.sender === 'staff';
-              const isLatest = index === turns.length - 1;
+              const isStaff =
+                turn.sender === 'staff';
+
+              const isLatest =
+                index === turns.length - 1;
 
               return (
                 <div
@@ -405,13 +470,20 @@ export default function RehearsalSimulator() {
 
                         <div className="flex flex-wrap gap-1.5">
                           {turn.suggestions.map(
-                            (suggestion, suggestionIndex) => (
+                            (
+                              suggestion,
+                              suggestionIndex
+                            ) => (
                               <button
                                 key={suggestionIndex}
                                 onClick={() =>
-                                  handleSendTurn(suggestion)
+                                  handleSendTurn(
+                                    suggestion
+                                  )
                                 }
-                                disabled={isSimulating}
+                                disabled={
+                                  isSimulating
+                                }
                                 className={`px-2.5 py-1 rounded text-[11px] font-bold border transition-all ${cardBg} ${borderTone} ${
                                   isSimulating
                                     ? 'opacity-40 cursor-not-allowed'
@@ -434,7 +506,8 @@ export default function RehearsalSimulator() {
               <div
                 className={`p-3 rounded-xl border ${cardInnerBg} mr-auto animate-pulse text-xs font-mono`}
               >
-                Simulated staff is preparing a practice response...
+                Simulated staff is preparing a
+                practice response...
               </div>
             )}
 
@@ -444,9 +517,10 @@ export default function RehearsalSimulator() {
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
 
                 <span>
-                  Live simulation service was unavailable. The response
-                  shown above is a predefined practice fallback, not a
-                  live AI-generated response.
+                  Live simulation service was unavailable.
+                  The response shown above is a predefined
+                  practice fallback, not a live AI-generated
+                  response.
                 </span>
               </div>
             )}
@@ -478,7 +552,7 @@ export default function RehearsalSimulator() {
                 }
               }}
               disabled={isSimulating}
-              placeholder="Type your practice response or show a card..."
+              placeholder="Type your practice response..."
               className={`flex-1 p-3 rounded-xl font-bold text-xs border outline-none ${cardInnerBg} ${borderTone} ${
                 isSimulating
                   ? 'opacity-50 cursor-not-allowed'
@@ -487,10 +561,16 @@ export default function RehearsalSimulator() {
             />
 
             <button
-              onClick={() => handleSendTurn()}
-              disabled={!userReply.trim() || isSimulating}
+              onClick={() =>
+                handleSendTurn()
+              }
+              disabled={
+                !userReply.trim() ||
+                isSimulating
+              }
               className={`px-5 py-3 rounded-xl font-black text-xs uppercase flex items-center gap-1.5 transition-all ${
-                userReply.trim() && !isSimulating
+                userReply.trim() &&
+                !isSimulating
                   ? `${accentSolid} hover:opacity-90`
                   : `${accentSolid} opacity-40 cursor-not-allowed`
               }`}
@@ -498,7 +578,9 @@ export default function RehearsalSimulator() {
               <Send className="w-3.5 h-3.5" />
 
               <span>
-                {isSimulating ? 'Thinking...' : 'Reply'}
+                {isSimulating
+                  ? 'Thinking...'
+                  : 'Reply'}
               </span>
             </button>
           </div>
@@ -510,33 +592,43 @@ export default function RehearsalSimulator() {
         >
           <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase">
             <FileCheck className="w-4 h-4 text-green-500" />
-            <span>Rehearsal Checklist:</span>
+
+            <span>
+              Rehearsal Checklist:
+            </span>
           </div>
 
           <p className="text-[11px] opacity-70 leading-relaxed">
-            Use these points as preparation reminders before approaching
-            the actual desk.
+            These are general preparation reminders.
+            They are not claims about actual desk
+            requirements.
           </p>
 
           <div className="space-y-2 pt-1">
-            {rehearsalChecklist.map((item, index) => (
-              <div
-                key={index}
-                className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs font-bold ${cardInnerBg} ${borderTone}`}
-              >
-                <Check className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />
+            {rehearsalChecklist.map(
+              (item, index) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs font-bold ${cardInnerBg} ${borderTone}`}
+                >
+                  <Check className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />
 
-                <span className="leading-snug">
-                  {item}
-                </span>
-              </div>
-            ))}
+                  <span className="leading-snug">
+                    {item}
+                  </span>
+                </div>
+              )
+            )}
           </div>
 
           <div className="p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 text-[10px] font-mono text-blue-900 dark:text-blue-200">
-            Note: This simulation is an educational practice
-            companion. Actual counter staff responses, document
-            requirements, fees, and procedures may vary.
+            Note: This is an educational practice
+            sandbox. The opening message is only the
+            starting situation. You can practice other
+            valid requests within the selected domain.
+            AI responses are safety-validated, but actual
+            staff responses, requirements, fees, schedules,
+            and procedures may vary.
           </div>
         </div>
       </div>

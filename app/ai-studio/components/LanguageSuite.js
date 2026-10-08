@@ -1,73 +1,223 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import {
   Sparkles,
-  HelpCircle,
   Volume2,
   Maximize2,
-  Copy,
-  Check,
-  Send,
   Languages,
   PenTool,
   Sliders,
   ShieldAlert,
-  AlertTriangle,
-  FileText,
   BookmarkPlus
 } from 'lucide-react';
 
+// =============================================================
+// SUPPORTED LANGUAGES
+// English + all 22 languages in the Eighth Schedule of India
+// =============================================================
+
+const SUPPORTED_LANGUAGES = [
+  { code: 'en', name: 'English', native: 'English' },
+  { code: 'as', name: 'Assamese', native: 'অসমীয়া' },
+  { code: 'bn', name: 'Bengali', native: 'বাংলা' },
+  { code: 'brx', name: 'Bodo', native: 'बड़ो' },
+  { code: 'doi', name: 'Dogri', native: 'डोगरी' },
+  { code: 'gu', name: 'Gujarati', native: 'ગુજરાતી' },
+  { code: 'hi', name: 'Hindi', native: 'हिंदी' },
+  { code: 'kn', name: 'Kannada', native: 'ಕನ್ನಡ' },
+  { code: 'ks', name: 'Kashmiri', native: 'کٲشُر' },
+  { code: 'kok', name: 'Konkani', native: 'कोंकणी' },
+  { code: 'mai', name: 'Maithili', native: 'मैथिली' },
+  { code: 'ml', name: 'Malayalam', native: 'മലയാളം' },
+  { code: 'mni', name: 'Manipuri', native: 'মৈতৈলোন্' },
+  { code: 'mr', name: 'Marathi', native: 'मराठी' },
+  { code: 'ne', name: 'Nepali', native: 'नेपाली' },
+  { code: 'or', name: 'Odia', native: 'ଓଡ଼ିଆ' },
+  { code: 'pa', name: 'Punjabi', native: 'ਪੰਜਾਬੀ' },
+  { code: 'sa', name: 'Sanskrit', native: 'संस्कृतम्' },
+  { code: 'sat', name: 'Santali', native: 'ᱥᱟᱱᱛᱟᱲᱤ' },
+  { code: 'sd', name: 'Sindhi', native: 'سنڌي' },
+  { code: 'ta', name: 'Tamil', native: 'தமிழ்' },
+  { code: 'te', name: 'Telugu', native: 'తెలుగు' },
+  { code: 'ur', name: 'Urdu', native: 'اردو' }
+];
+
 export default function LanguageSuite() {
-  const { bgCanvas, textPrimary, textSecondary, cardBg, cardInnerBg, borderTone, accentSolid, isDarkTheme } = useTheme();
+  const {
+    bgCanvas,
+    textPrimary,
+    textSecondary,
+    cardBg,
+    cardInnerBg,
+    borderTone,
+    accentSolid,
+    isDarkTheme
+  } = useTheme();
 
-  // Active Tool Sub-Tab
-  const [activeTab, setActiveTab] = useState('composer'); // 'composer' | 'explainer' | 'gaps' | 'translator' | 'levels' | 'emergency'
+  // =========================================================
+  // ACTIVE TAB
+  // =========================================================
 
-  // Composer State (Feature 16)
+  const [activeTab, setActiveTab] = useState('composer');
+
+  // =========================================================
+  // COMPOSER
+  // =========================================================
+
   const [composerIntent, setComposerIntent] = useState('');
-  const [composerTone, setComposerTone] = useState('polite'); // 'brief' | 'polite' | 'urgent' | 'detailed'
+  const [composerTone, setComposerTone] = useState('polite');
   const [composerResult, setComposerResult] = useState(null);
 
-  // Explainer & Gap Detector State (Features 13, 14, 15)
-  const [rawText, setRawText] = useState('Please take this requisition slip to Counter 4 in the Administrative Wing before 2:30 PM on Thursday. You will need your student ID card and original fee receipt.');
+  // =========================================================
+  // EXPLAINER / GAP DETECTOR
+  // =========================================================
+
+  const [rawText, setRawText] = useState(
+    'Please take this requisition slip to Counter 4 in the Administrative Wing before 2:30 PM on Thursday. You will need your student ID card and original fee receipt.'
+  );
+
   const [explainerResult, setExplainerResult] = useState(null);
   const [gapResult, setGapResult] = useState(null);
 
-  // Translation State (Feature 17)
-  const [transSourceText, setTransSourceText] = useState('Where is the verification counter for student certificates?');
+  // =========================================================
+  // TRANSLATION
+  // =========================================================
+
+  const [transSourceText, setTransSourceText] = useState(
+    'Where is the verification counter for student certificates?'
+  );
+
   const [sourceLang, setSourceLang] = useState('en');
   const [targetLang, setTargetLang] = useState('hi');
   const [transResult, setTransResult] = useState(null);
 
-  // Reading Level State (Feature 18)
-  const [readingMode, setReadingMode] = useState('simpler'); // 'simpler' | 'shorter' | 'step_by_step' | 'key_points' | 'formal'
+  // =========================================================
+  // READING LEVEL
+  // =========================================================
+
+  const [readingMode, setReadingMode] = useState('simpler');
   const [readingResult, setReadingResult] = useState(null);
 
-  // Emergency SOS State (Feature 27)
+  // =========================================================
+  // GLOBAL UI
+  // =========================================================
+
   const [fullscreenCard, setFullscreenCard] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [savedToPhrasebook, setSavedToPhrasebook] = useState(false);
 
-  // 1. Compose Card
+  useEffect(() => {
+  if (!fullscreenCard) return;
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      setFullscreenCard(null);
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+
+  return () => {
+    window.removeEventListener('keydown', handleKeyDown);
+  };
+}, [fullscreenCard]);
+
+  // =========================================================
+  // HELPERS
+  // =========================================================
+
+  const getErrorMessage = (data, fallback) =>
+    data?.error ||
+    data?.detail ||
+    data?.message ||
+    fallback;
+
+  const speakText = (text) => {
+    if (
+      typeof window === 'undefined' ||
+      !('speechSynthesis' in window) ||
+      !text
+    ) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleSaveToPhrasebook = (
+    textToSave,
+    category = 'General'
+  ) => {
+    if (!textToSave?.trim()) return;
+
+    try {
+      const existing = JSON.parse(
+        localStorage.getItem('signmitra_phrasebook') || '[]'
+      );
+
+      const newPhrase = {
+        id: `phrase-${Date.now()}`,
+        category,
+        text: textToSave
+      };
+
+      localStorage.setItem(
+        'signmitra_phrasebook',
+        JSON.stringify([
+          newPhrase,
+          ...existing
+        ])
+      );
+
+      setSavedToPhrasebook(true);
+
+      setTimeout(() => {
+        setSavedToPhrasebook(false);
+      }, 3000);
+    } catch (e) {
+      alert('Could not save phrase: ' + e.message);
+    }
+  };
+
+  // =========================================================
+  // 1. COMPOSE CARD
+  // =========================================================
+
   const handleCompose = async () => {
     if (!composerIntent.trim()) return;
+
     setIsProcessing(true);
     setSavedToPhrasebook(false);
 
     try {
       const res = await fetch('/api/ai-studio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           action: 'compose_card',
-          intent: composerIntent,
+          intent: composerIntent.trim(),
           tone: composerTone
         })
       });
+
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          getErrorMessage(
+            data,
+            'Failed to compose communication card.'
+          )
+        );
+      }
+
       setComposerResult(data);
     } catch (e) {
       alert('Failed to compose card: ' + e.message);
@@ -76,75 +226,178 @@ export default function LanguageSuite() {
     }
   };
 
-  // 2. Explain & Detect Gaps
+  // =========================================================
+  // 2. EXPLAIN + DETECT GAPS
+  // =========================================================
+
   const handleExplainAndGaps = async () => {
     if (!rawText.trim()) return;
+
     setIsProcessing(true);
+    setExplainerResult(null);
+    setGapResult(null);
 
     try {
+      // -----------------------------------------
+      // Plain-language explanation
+      // -----------------------------------------
+
       const expRes = await fetch('/api/ai-studio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'explain_plain_language', text: rawText })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'explain_plain_language',
+          text: rawText.trim()
+        })
       });
+
       const expData = await expRes.json();
+
+      if (!expRes.ok) {
+        throw new Error(
+          getErrorMessage(
+            expData,
+            'Plain-language analysis failed.'
+          )
+        );
+      }
+
       setExplainerResult(expData);
+
+      // -----------------------------------------
+      // Deterministic communication-gap analysis
+      // -----------------------------------------
 
       const gapRes = await fetch('/api/ai-studio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'detect_gaps', text: rawText })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'detect_gaps',
+          text: rawText.trim()
+        })
       });
+
       const gapData = await gapRes.json();
+
+      if (!gapRes.ok) {
+        throw new Error(
+          getErrorMessage(
+            gapData,
+            'Gap detection failed.'
+          )
+        );
+      }
+
       setGapResult(gapData);
     } catch (e) {
+      setExplainerResult(null);
+      setGapResult(null);
       alert('Analysis error: ' + e.message);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // 3. Translate
+  // =========================================================
+  // 3. TRANSLATE
+  // =========================================================
+
   const handleTranslate = async () => {
-    if (!transSourceText.trim()) return;
+    const text = transSourceText.trim();
+
+    if (!text) return;
+
     setIsProcessing(true);
+    setTransResult(null);
 
     try {
       const res = await fetch('/api/ai-studio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           action: 'translate',
-          text: transSourceText,
+          text,
           sourceLang,
-          targetLang
+          targetLang,
+          mode: 'ai'
         })
       });
+
       const data = await res.json();
-      setTransResult(data);
+
+      if (!res.ok) {
+        throw new Error(
+          getErrorMessage(
+            data,
+            'Translation API failed.'
+          )
+        );
+      }
+
+      const translatedText =
+        data?.translatedText ||
+        data?.translated_text ||
+        data?.translation ||
+        '';
+
+      if (!translatedText.trim()) {
+        throw new Error(
+          'Translation service returned an empty translation.'
+        );
+      }
+
+      setTransResult({
+        ...data,
+        translatedText
+      });
     } catch (e) {
+      setTransResult(null);
       alert('Translation error: ' + e.message);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // 4. Reading Level Simplify
+  // =========================================================
+  // 4. READING LEVEL
+  // =========================================================
+
   const handleReadingLevel = async () => {
     if (!rawText.trim()) return;
+
     setIsProcessing(true);
+    setReadingResult(null);
 
     try {
       const res = await fetch('/api/ai-studio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           action: 'simplify_reading_level',
-          text: rawText,
+          text: rawText.trim(),
           mode: readingMode
         })
       });
+
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          getErrorMessage(
+            data,
+            'Reading-level simplification failed.'
+          )
+        );
+      }
+
       setReadingResult(data);
     } catch (e) {
       alert('Simplification error: ' + e.message);
@@ -153,68 +406,89 @@ export default function LanguageSuite() {
     }
   };
 
-  // Save to existing Phrasebook (`signmitra_phrasebook`)
-  const handleSaveToPhrasebook = (textToSave, category = 'General') => {
-    const existing = JSON.parse(localStorage.getItem('signmitra_phrasebook') || '[]');
-    const newPhrase = {
-      id: `phrase-${Date.now()}`,
-      category,
-      text: textToSave
-    };
-    localStorage.setItem('signmitra_phrasebook', JSON.stringify([newPhrase, ...existing]));
-    setSavedToPhrasebook(true);
-    setTimeout(() => setSavedToPhrasebook(false), 3000);
-  };
-
-  // Speak helper
-  const speakText = (text) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      window.speechSynthesis.speak(u);
-    }
-  };
+  // =========================================================
+  // RENDER
+  // =========================================================
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      
-      {/* Sub-Tab Navigation */}
-      <div className={`p-2 rounded-2xl border-2 ${borderTone} ${cardBg} flex flex-wrap gap-2 shadow-sm`}>
+
+      {/* ===================================================== */}
+      {/* SUB-TAB NAVIGATION                                    */}
+      {/* ===================================================== */}
+
+      <div
+        className={`p-2 rounded-2xl border-2 ${borderTone} ${cardBg} flex flex-wrap gap-2 shadow-sm`}
+      >
         {[
-          { id: 'composer', label: 'Card Composer', icon: PenTool },
-          { id: 'explainer', label: 'Plain Explainer & Gaps', icon: Sparkles },
-          { id: 'translator', label: 'Translation', icon: Languages },
-          { id: 'levels', label: 'Reading Level Controls', icon: Sliders },
-          { id: 'emergency', label: 'Emergency SOS Cards', icon: ShieldAlert }
-        ].map((t) => {
-          const Icon = t.icon;
-          const isActive = activeTab === t.id;
+          {
+            id: 'composer',
+            label: 'Card Composer',
+            icon: PenTool
+          },
+          {
+            id: 'explainer',
+            label: 'Plain Explainer & Gaps',
+            icon: Sparkles
+          },
+          {
+            id: 'translator',
+            label: 'Translation',
+            icon: Languages
+          },
+          {
+            id: 'levels',
+            label: 'Reading Level Controls',
+            icon: Sliders
+          },
+          {
+            id: 'emergency',
+            label: 'Emergency SOS Cards',
+            icon: ShieldAlert
+          }
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+
           return (
             <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
               className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-                isActive ? accentSolid : `${cardInnerBg} opacity-70 hover:opacity-100`
+                isActive
+                  ? accentSolid
+                  : `${cardInnerBg} opacity-70 hover:opacity-100`
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
-              <span>{t.label}</span>
+              <span>{tab.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* ========================================================= */}
-      {/* TAB 1: AI COMMUNICATION CARD COMPOSER (Feature 16)       */}
-      {/* ========================================================= */}
+      {/* ===================================================== */}
+      {/* TAB 1: CARD COMPOSER                                  */}
+      {/* ===================================================== */}
+
       {activeTab === 'composer' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm`}>
+
+          {/* INPUT */}
+
+          <div
+            className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm`}
+          >
             <div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-60">
                 Feature 16 · User to Staff
               </span>
-              <h3 className="text-xl font-black uppercase tracking-tight">AI Communication Card Composer</h3>
+
+              <h3 className="text-xl font-black uppercase tracking-tight">
+                AI Communication Card Composer
+              </h3>
+
               <p className={`text-xs mt-1 font-medium ${textSecondary}`}>
                 Convert your goal into a high-visibility card tailored for busy counter clerks.
               </p>
@@ -224,9 +498,12 @@ export default function LanguageSuite() {
               <label className="text-xs font-mono font-bold uppercase opacity-80">
                 What do you want to say or ask?
               </label>
+
               <textarea
                 value={composerIntent}
-                onChange={(e) => setComposerIntent(e.target.value)}
+                onChange={(e) =>
+                  setComposerIntent(e.target.value)
+                }
                 placeholder="e.g., I need to get my college migration certificate signed by the registrar..."
                 rows={3}
                 className={`w-full p-3 font-bold border-2 rounded-xl text-sm outline-none ${cardInnerBg} ${borderTone} resize-none`}
@@ -237,13 +514,22 @@ export default function LanguageSuite() {
               <label className="text-xs font-mono font-bold uppercase opacity-80">
                 Communication Tone
               </label>
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {['polite', 'brief', 'urgent', 'detailed'].map((tone) => (
+                {[
+                  'polite',
+                  'brief',
+                  'urgent',
+                  'detailed'
+                ].map((tone) => (
                   <button
                     key={tone}
+                    type="button"
                     onClick={() => setComposerTone(tone)}
                     className={`py-2 px-2.5 rounded-lg border text-xs font-mono font-bold uppercase transition-all ${
-                      composerTone === tone ? accentSolid : `${cardInnerBg} ${borderTone}`
+                      composerTone === tone
+                        ? accentSolid
+                        : `${cardInnerBg} ${borderTone}`
                     }`}
                   >
                     {tone}
@@ -253,50 +539,96 @@ export default function LanguageSuite() {
             </div>
 
             <button
+              type="button"
               onClick={handleCompose}
-              disabled={!composerIntent.trim() || isProcessing}
+              disabled={
+                !composerIntent.trim() ||
+                isProcessing
+              }
               className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 ${
-                composerIntent.trim() ? accentSolid + ' hover:opacity-90' : 'opacity-40 cursor-not-allowed border ' + borderTone
+                composerIntent.trim() && !isProcessing
+                  ? `${accentSolid} hover:opacity-90`
+                  : 'opacity-40 cursor-not-allowed border ' +
+                    borderTone
               }`}
             >
               <Sparkles className="w-4 h-4" />
-              <span>Compose Card Message</span>
+
+              <span>
+                {isProcessing
+                  ? 'Processing...'
+                  : 'Compose Card Message'}
+              </span>
             </button>
           </div>
 
-          {/* Composed Output */}
-          <div className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm flex flex-col justify-between`}>
+          {/* OUTPUT */}
+
+          <div
+            className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm flex flex-col justify-between`}
+          >
             <div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-60">
                 Card Preview
               </span>
-              <h3 className="text-xl font-black uppercase tracking-tight">Ready for Display</h3>
+
+              <h3 className="text-xl font-black uppercase tracking-tight">
+                Ready for Display
+              </h3>
 
               {composerResult ? (
                 <div className="mt-4 space-y-4">
-                  <div className={`p-6 rounded-2xl border-4 ${borderTone} ${cardInnerBg} shadow-inner`}>
+
+                  <div
+                    className={`p-6 rounded-2xl border-4 ${borderTone} ${cardInnerBg} shadow-inner`}
+                  >
                     <p className="text-xl sm:text-2xl font-black leading-snug">
                       "{composerResult.composedText}"
                     </p>
                   </div>
 
-                  <div className={`p-3 rounded-xl border ${borderTone} ${cardInnerBg} text-xs font-mono`}>
-                    <span className="opacity-60 block text-[10px]">Predicted Follow-Up Question:</span>
-                    <span className="font-bold">{composerResult.followUpQuestion}</span>
-                  </div>
+                  {composerResult.followUpQuestion && (
+                    <div
+                      className={`p-3 rounded-xl border ${borderTone} ${cardInnerBg} text-xs font-mono`}
+                    >
+                      <span className="opacity-60 block text-[10px]">
+                        Predicted Follow-Up Question:
+                      </span>
+
+                      <span className="font-bold">
+                        {composerResult.followUpQuestion}
+                      </span>
+                    </div>
+                  )}
+
                 </div>
               ) : (
                 <div className="py-16 text-center opacity-50 space-y-2">
                   <PenTool className="w-8 h-8 mx-auto" />
-                  <p className="text-xs font-mono font-bold uppercase">Enter your message on the left to compose a card</p>
+
+                  <p className="text-xs font-mono font-bold uppercase">
+                    Enter your message on the left to compose a card
+                  </p>
                 </div>
               )}
             </div>
 
-            {composerResult && (
-              <div className="pt-3 flex flex-wrap gap-2 border-t border-dashed" style={{ borderColor: isDarkTheme ? '#AB92BF30' : '#655A7C20' }}>
+            {composerResult?.composedText && (
+              <div
+                className="pt-3 flex flex-wrap gap-2 border-t border-dashed"
+                style={{
+                  borderColor: isDarkTheme
+                    ? '#AB92BF30'
+                    : '#655A7C20'
+                }}
+              >
                 <button
-                  onClick={() => setFullscreenCard(composerResult.composedText)}
+                  type="button"
+                  onClick={() =>
+                    setFullscreenCard(
+                      composerResult.composedText
+                    )
+                  }
                   className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase border-2 ${borderTone} ${cardInnerBg} hover:opacity-80 flex items-center justify-center gap-1.5`}
                 >
                   <Maximize2 className="w-4 h-4" />
@@ -304,7 +636,12 @@ export default function LanguageSuite() {
                 </button>
 
                 <button
-                  onClick={() => speakText(composerResult.composedText)}
+                  type="button"
+                  onClick={() =>
+                    speakText(
+                      composerResult.composedText
+                    )
+                  }
                   className={`p-3 rounded-xl font-bold text-xs border-2 ${borderTone} ${cardInnerBg} hover:opacity-80`}
                   title="Speak"
                 >
@@ -312,11 +649,22 @@ export default function LanguageSuite() {
                 </button>
 
                 <button
-                  onClick={() => handleSaveToPhrasebook(composerResult.composedText, 'Custom Cards')}
+                  type="button"
+                  onClick={() =>
+                    handleSaveToPhrasebook(
+                      composerResult.composedText,
+                      'Custom Cards'
+                    )
+                  }
                   className={`py-3 px-4 rounded-xl font-bold text-xs uppercase flex items-center gap-1.5 ${accentSolid} hover:opacity-90`}
                 >
                   <BookmarkPlus className="w-4 h-4" />
-                  <span>{savedToPhrasebook ? 'Saved to Phrasebook!' : 'Save to Phrases'}</span>
+
+                  <span>
+                    {savedToPhrasebook
+                      ? 'Saved to Phrasebook!'
+                      : 'Save to Phrases'}
+                  </span>
                 </button>
               </div>
             )}
@@ -324,17 +672,25 @@ export default function LanguageSuite() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* TAB 2: EXPLAINER & GAP DETECTOR (Features 13, 14, 15)      */}
-      {/* ========================================================= */}
+      {/* ===================================================== */}
+      {/* TAB 2: EXPLAINER & GAP DETECTOR                       */}
+      {/* ===================================================== */}
+
       {activeTab === 'explainer' && (
         <div className="space-y-4">
-          <div className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-3 shadow-sm`}>
+
+          <div
+            className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-3 shadow-sm`}
+          >
             <div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-60">
                 Features 13, 14 & 15 · Administrative Simplification
               </span>
-              <h3 className="text-xl font-black uppercase tracking-tight">Plain-Language Explainer & Gap Detector</h3>
+
+              <h3 className="text-xl font-black uppercase tracking-tight">
+                Plain-Language Explainer & Gap Detector
+              </h3>
+
               <p className={`text-xs mt-1 font-medium ${textSecondary}`}>
                 Enter or paste complex counter text to extract facts and identify ambiguities with exact text citations.
               </p>
@@ -348,125 +704,285 @@ export default function LanguageSuite() {
             />
 
             <button
+              type="button"
               onClick={handleExplainAndGaps}
               disabled={!rawText.trim() || isProcessing}
-              className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 ${accentSolid} hover:opacity-90`}
+              className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 ${
+                rawText.trim() && !isProcessing
+                  ? `${accentSolid} hover:opacity-90`
+                  : 'opacity-40 cursor-not-allowed'
+              }`}
             >
               <Sparkles className="w-4 h-4" />
-              <span>Analyze Text & Detect Gaps</span>
+
+              <span>
+                {isProcessing
+                  ? 'Analyzing...'
+                  : 'Analyze Text & Detect Gaps'}
+              </span>
             </button>
           </div>
 
-          {/* Results Grid */}
           {explainerResult && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
-              {/* Plain Language & Facts */}
-              <div className={`p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm`}>
+
+              {/* PLAIN LANGUAGE */}
+
+              <div
+                className={`p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm`}
+              >
                 <span className="text-xs font-mono font-bold uppercase opacity-70">
                   1. Plain-Language Breakdown
                 </span>
-                <div className={`p-4 rounded-xl border ${borderTone} ${cardInnerBg}`}>
+
+                <div
+                  className={`p-4 rounded-xl border ${borderTone} ${cardInnerBg}`}
+                >
                   <p className="text-base font-black leading-snug">
-                    {explainerResult.plainLanguageSummary}
+                    {explainerResult.plainLanguageSummary ||
+                      explainerResult.summary ||
+                      'No summary available.'}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                  <div className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg}`}>
-                    <span className="opacity-60 block text-[10px]">Location:</span>
-                    <span className="font-bold">{explainerResult.keyDetails?.locationOrCounter}</span>
+
+                  <div
+                    className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg}`}
+                  >
+                    <span className="opacity-60 block text-[10px]">
+                      Location:
+                    </span>
+
+                    <span className="font-bold">
+                      {explainerResult.keyDetails?.locationOrCounter ||
+                        explainerResult.location ||
+                        'Not specified'}
+                    </span>
                   </div>
-                  <div className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg}`}>
-                    <span className="opacity-60 block text-[10px]">Deadline:</span>
-                    <span className="font-bold">{explainerResult.keyDetails?.deadlineOrTime}</span>
+
+                  <div
+                    className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg}`}
+                  >
+                    <span className="opacity-60 block text-[10px]">
+                      Deadline:
+                    </span>
+
+                    <span className="font-bold">
+                      {explainerResult.keyDetails?.deadline ||
+                        explainerResult.deadline ||
+                        'Not specified'}
+                    </span>
                   </div>
                 </div>
 
-                <div className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} text-xs font-mono`}>
-                  <span className="opacity-60 block text-[10px]">Action Item:</span>
-                  <span className="font-bold">{explainerResult.actionRequired}</span>
+                <div
+                  className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} text-xs font-mono`}
+                >
+                  <span className="opacity-60 block text-[10px]">
+                    Action Item:
+                  </span>
+
+                  <span className="font-bold">
+                    {explainerResult.actionRequired ||
+                      explainerResult.action_step ||
+                      'No action specified'}
+                  </span>
                 </div>
+
+                {explainerResult.keyDetails?.requiredDocuments?.length > 0 && (
+                  <div
+                    className={`p-3 rounded-lg border ${borderTone} ${cardInnerBg} text-xs font-mono`}
+                  >
+                    <span className="opacity-60 block text-[10px] mb-1">
+                      Required Documents:
+                    </span>
+
+                    <ul className="list-disc pl-4 space-y-0.5 font-bold">
+                      {explainerResult.keyDetails.requiredDocuments.map(
+                        (document, index) => (
+                          <li key={index}>{document}</li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                )}
               </div>
 
-              {/* Detected Gaps & Questions */}
-              <div className={`p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-3 shadow-sm`}>
+              {/* DETECTED GAPS */}
+
+              <div
+                className={`p-5 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-3 shadow-sm`}
+              >
                 <div className="flex justify-between items-center">
+
                   <span className="text-xs font-mono font-bold uppercase opacity-70">
                     2. Detected Communication Gaps
                   </span>
+
                   {gapResult && (
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${accentSolid}`}>
-                      {gapResult.clarityScore}
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${accentSolid}`}
+                    >
+                      {gapResult.gaps?.length || 0}{' '}
+                      {gapResult.gaps?.length === 1
+                        ? 'Gap'
+                        : 'Gaps'}
                     </span>
                   )}
                 </div>
 
-                {gapResult?.gaps?.map((gap, idx) => (
-                  <div key={idx} className={`p-3.5 rounded-xl border border-orange-500/40 bg-orange-500/10 space-y-1.5`}>
-                    <div className="flex justify-between text-xs font-mono font-bold text-orange-700 dark:text-orange-300">
-                      <span>{gap.label}</span>
-                      <span className="opacity-60 text-[10px]">"{gap.quote}"</span>
-                    </div>
-                    <p className="text-xs font-bold text-orange-950 dark:text-orange-100">
-                      {gap.issue}
-                    </p>
-                    <div className="flex justify-between items-center pt-1">
-                      <span className="text-[11px] font-mono italic">"{gap.suggestion}"</span>
-                      <button
-                        onClick={() => setFullscreenCard(gap.suggestion)}
-                        className="px-2 py-0.5 rounded text-[10px] font-mono font-bold border uppercase"
+                {gapResult?.gaps?.length ? (
+                  <div className="space-y-3">
+                    {gapResult.gaps.map((gap, idx) => (
+                      <div
+                        key={`${gap.category || 'gap'}-${idx}`}
+                        className="p-3.5 rounded-xl border border-orange-500/40 bg-orange-500/10 space-y-1.5"
                       >
-                        Show Card
-                      </button>
+                        <div className="flex justify-between items-start gap-3 text-xs font-mono font-bold text-orange-700 dark:text-orange-300">
+
+                          <span className="uppercase">
+                            {gap.category ||
+                              'Communication Gap'}
+                          </span>
+
+                          {gap.quote && (
+                            <span className="opacity-60 text-[10px] text-right">
+                              "{gap.quote}"
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-xs font-bold text-orange-950 dark:text-orange-100">
+                          {gap.issue ||
+                            'Potential ambiguity detected.'}
+                        </p>
+
+                        {gap.suggested_action && (
+                          <div className="flex justify-between items-center gap-2 pt-1">
+
+                            <span className="text-[11px] font-mono italic">
+                              {gap.suggested_action}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFullscreenCard(
+                                  gap.suggested_action
+                                )
+                              }
+                              className="shrink-0 px-2 py-0.5 rounded text-[10px] font-mono font-bold border uppercase"
+                            >
+                              Show Card
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-10 text-center opacity-50">
+                    <p className="text-xs font-mono font-bold uppercase">
+                      No communication gaps detected.
+                    </p>
+                  </div>
+                )}
+
+                {gapResult?.relative_dates_detected?.length > 0 && (
+                  <div
+                    className={`p-3 rounded-xl border ${borderTone} ${cardInnerBg}`}
+                  >
+                    <span className="block text-[10px] font-mono uppercase opacity-60 mb-1">
+                      Relative Time Detected
+                    </span>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {gapResult.relative_dates_detected.map(
+                        (date, index) => (
+                          <span
+                            key={index}
+                            className="px-2 py-1 rounded-md border text-[10px] font-mono font-bold"
+                          >
+                            {date}
+                          </span>
+                        )
+                      )}
                     </div>
                   </div>
-                ))}
+                )}
               </div>
-
             </div>
           )}
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* TAB 3: CONTEXT-AWARE TRANSLATION (Feature 17)             */}
-      {/* ========================================================= */}
+      {/* ===================================================== */}
+      {/* TAB 3: TRANSLATION                                   */}
+      {/* ===================================================== */}
+
       {activeTab === 'translator' && (
-        <div className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm`}>
+        <div
+          className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm`}
+        >
+
           <div>
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-60">
               Feature 17 · Multilingual Bridge
             </span>
-            <h3 className="text-xl font-black uppercase tracking-tight">Context-Aware Translation</h3>
+
+            <h3 className="text-xl font-black uppercase tracking-tight">
+              Context-Aware Translation
+            </h3>
+
             <p className={`text-xs mt-1 font-medium ${textSecondary}`}>
               Translate user text for hearing staff while preserving numbers, dates, and locations.
             </p>
           </div>
 
+          {/* LANGUAGES */}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
             <div>
-              <label className="text-xs font-mono font-bold uppercase opacity-70 block mb-1">Source Language</label>
+              <label className="text-xs font-mono font-bold uppercase opacity-70 block mb-1">
+                Source Language
+              </label>
+
               <select
                 value={sourceLang}
                 onChange={(e) => setSourceLang(e.target.value)}
                 className={`w-full p-2.5 rounded-xl font-bold border ${cardInnerBg} ${borderTone}`}
               >
-                <option value="en">English</option>
-                <option value="hi">Hindi (हिंदी)</option>
-                <option value="ta">Tamil (தமிழ்)</option>
+                {SUPPORTED_LANGUAGES.map((language) => (
+                  <option
+                    key={language.code}
+                    value={language.code}
+                  >
+                    {language.name} ({language.native})
+                  </option>
+                ))}
               </select>
             </div>
+
             <div>
-              <label className="text-xs font-mono font-bold uppercase opacity-70 block mb-1">Target Language</label>
+              <label className="text-xs font-mono font-bold uppercase opacity-70 block mb-1">
+                Target Language
+              </label>
+
               <select
                 value={targetLang}
                 onChange={(e) => setTargetLang(e.target.value)}
                 className={`w-full p-2.5 rounded-xl font-bold border ${cardInnerBg} ${borderTone}`}
               >
-                <option value="hi">Hindi (हिंदी)</option>
-                <option value="ta">Tamil (தமிழ்)</option>
-                <option value="en">English</option>
+                {SUPPORTED_LANGUAGES.map((language) => (
+                  <option
+                    key={language.code}
+                    value={language.code}
+                  >
+                    {language.name} ({language.native})
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -475,81 +991,169 @@ export default function LanguageSuite() {
             value={transSourceText}
             onChange={(e) => setTransSourceText(e.target.value)}
             rows={3}
+            placeholder="Enter the message you want to translate..."
             className={`w-full p-3 font-bold border-2 rounded-xl text-sm outline-none ${cardInnerBg} ${borderTone} resize-none`}
           />
 
           <button
+            type="button"
             onClick={handleTranslate}
             disabled={!transSourceText.trim() || isProcessing}
-            className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 ${accentSolid} hover:opacity-90`}
+            className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 ${
+              transSourceText.trim() && !isProcessing
+                ? `${accentSolid} hover:opacity-90`
+                : 'opacity-40 cursor-not-allowed'
+            }`}
           >
             <Languages className="w-4 h-4" />
-            <span>Translate Text</span>
+
+            <span>
+              {isProcessing
+                ? 'Translating...'
+                : 'Translate Text'}
+            </span>
           </button>
 
           {transResult && (
-            <div className={`p-5 rounded-2xl border-4 ${borderTone} ${cardInnerBg} space-y-3`}>
-              <div className="flex justify-between items-center text-xs font-mono">
-                <span className="font-bold opacity-70 uppercase">Translated Result:</span>
-                <span className="text-[10px] opacity-50">{transResult.disclaimer}</span>
+            <div
+              className={`p-5 rounded-2xl border-4 ${borderTone} ${cardInnerBg} space-y-3`}
+            >
+
+              <div className="flex justify-between items-center text-xs font-mono gap-3">
+
+                <span className="font-bold opacity-70 uppercase">
+                  Translated Result:
+                </span>
+
+                <span className="text-[10px] opacity-50 text-right">
+                  {transResult.disclaimer ||
+                    'AI-assisted translation'}
+                </span>
               </div>
+
               <p className="text-xl sm:text-2xl font-black leading-snug">
-                {transResult.translatedText}
+                {transResult.translatedText ||
+                  transResult.translated_text ||
+                  'Translation unavailable'}
               </p>
+
+              <div className="flex flex-wrap gap-2 text-[10px] font-mono opacity-50">
+                {transResult.sourceLanguage && (
+                  <span>
+                    Source: {transResult.sourceLanguage}
+                  </span>
+                )}
+
+                {transResult.targetLanguage && (
+                  <span>
+                    Target: {transResult.targetLanguage}
+                  </span>
+                )}
+
+                {transResult.engine && (
+                  <span>
+                    Engine: {transResult.engine}
+                  </span>
+                )}
+              </div>
+
               <div className="flex gap-2 pt-2">
+
                 <button
-                  onClick={() => setFullscreenCard(transResult.translatedText)}
+                  type="button"
+                  onClick={() =>
+                    setFullscreenCard(
+                      transResult.translatedText ||
+                      transResult.translated_text
+                    )
+                  }
                   className={`py-2 px-3 rounded-lg border text-xs font-mono font-bold uppercase flex items-center gap-1 ${cardBg} ${borderTone}`}
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
                   <span>Fullscreen Card</span>
                 </button>
+
                 <button
-                  onClick={() => speakText(transResult.translatedText)}
+                  type="button"
+                  onClick={() =>
+                    speakText(
+                      transResult.translatedText ||
+                      transResult.translated_text
+                    )
+                  }
                   className={`py-2 px-3 rounded-lg border text-xs font-mono font-bold uppercase flex items-center gap-1 ${cardBg} ${borderTone}`}
                 >
                   <Volume2 className="w-3.5 h-3.5" />
                   <span>Speak</span>
                 </button>
+
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* TAB 4: READING LEVEL & SIMPLIFICATION (Feature 18)        */}
-      {/* ========================================================= */}
+      {/* ===================================================== */}
+      {/* TAB 4: READING LEVEL                                 */}
+      {/* ===================================================== */}
+
       {activeTab === 'levels' && (
-        <div className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm`}>
+        <div
+          className={`p-5 sm:p-6 rounded-2xl border-2 ${borderTone} ${cardBg} space-y-4 shadow-sm`}
+        >
+
           <div>
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider opacity-60">
               Feature 18 · Cognitive Accessibility
             </span>
-            <h3 className="text-xl font-black uppercase tracking-tight">Plain-Language & Reading-Level Controls</h3>
+
+            <h3 className="text-xl font-black uppercase tracking-tight">
+              Plain-Language & Reading-Level Controls
+            </h3>
+
             <p className={`text-xs mt-1 font-medium ${textSecondary}`}>
               Choose how you want text reformatted for easier comprehension.
             </p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+
             {[
-              { id: 'simpler', label: 'Simpler Wording' },
-              { id: 'shorter', label: 'Shorter Sentences' },
-              { id: 'step_by_step', label: 'Step-by-Step' },
-              { id: 'key_points', label: 'Key Points Only' },
-              { id: 'formal', label: 'Formal / Polite' }
-            ].map((m) => (
+              {
+                id: 'simpler',
+                label: 'Simpler Wording'
+              },
+              {
+                id: 'shorter',
+                label: 'Shorter Sentences'
+              },
+              {
+                id: 'step_by_step',
+                label: 'Step-by-Step'
+              },
+              {
+                id: 'key_points',
+                label: 'Key Points Only'
+              },
+              {
+                id: 'formal',
+                label: 'Formal / Polite'
+              }
+            ].map((mode) => (
               <button
-                key={m.id}
-                onClick={() => setReadingMode(m.id)}
+                key={mode.id}
+                type="button"
+                onClick={() => setReadingMode(mode.id)}
                 className={`py-2 px-2 rounded-lg border text-xs font-mono font-bold uppercase transition-all ${
-                  readingMode === m.id ? accentSolid : `${cardInnerBg} ${borderTone}`
+                  readingMode === mode.id
+                    ? accentSolid
+                    : `${cardInnerBg} ${borderTone}`
                 }`}
               >
-                {m.label}
+                {mode.label}
               </button>
             ))}
+
           </div>
 
           <textarea
@@ -560,44 +1164,69 @@ export default function LanguageSuite() {
           />
 
           <button
+            type="button"
             onClick={handleReadingLevel}
-            className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 ${accentSolid} hover:opacity-90`}
+            disabled={!rawText.trim() || isProcessing}
+            className={`w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 ${
+              rawText.trim() && !isProcessing
+                ? `${accentSolid} hover:opacity-90`
+                : 'opacity-40 cursor-not-allowed'
+            }`}
           >
             <Sliders className="w-4 h-4" />
-            <span>Format Reading Level</span>
+
+            <span>
+              {isProcessing
+                ? 'Formatting...'
+                : 'Format Reading Level'}
+            </span>
           </button>
 
           {readingResult && (
-            <div className={`p-5 rounded-2xl border ${borderTone} ${cardInnerBg} space-y-3`}>
+            <div
+              className={`p-5 rounded-2xl border ${borderTone} ${cardInnerBg} space-y-3`}
+            >
+
               <span className="text-xs font-mono font-bold uppercase opacity-70">
-                Mode: {readingResult.mode}
+                Mode: {readingResult.mode || readingMode}
               </span>
+
               <p className="text-base font-black whitespace-pre-line leading-relaxed">
-                {readingResult.simplifiedText}
+                {readingResult.simplifiedText ||
+                  readingResult.simplified_text ||
+                  'No simplified result available.'}
               </p>
+
             </div>
           )}
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* TAB 5: EMERGENCY SOS COMMUNICATION (Feature 27)           */}
-      {/* ========================================================= */}
+      {/* ===================================================== */}
+      {/* TAB 5: EMERGENCY SOS                                 */}
+      {/* ===================================================== */}
+
       {activeTab === 'emergency' && (
-        <div className={`p-5 sm:p-6 rounded-2xl border-2 border-red-500/40 bg-red-500/10 space-y-4 shadow-sm`}>
+        <div
+          className="p-5 sm:p-6 rounded-2xl border-2 border-red-500/40 bg-red-500/10 space-y-4 shadow-sm"
+        >
+
           <div>
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700 dark:text-red-300">
               Feature 27 · Emergency Accessibility Cards
             </span>
+
             <h3 className="text-xl font-black uppercase tracking-tight text-red-900 dark:text-red-100">
               Immediate High-Priority Cards
             </h3>
+
             <p className="text-xs mt-1 text-red-800 dark:text-red-200">
               Display or speak essential accessibility cards instantly during urgent situations.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
             {[
               {
                 title: 'Deaf Identity & Written Form',
@@ -624,63 +1253,110 @@ export default function LanguageSuite() {
                 key={idx}
                 className={`p-4 rounded-xl border border-red-500/30 ${cardInnerBg} space-y-2`}
               >
+
                 <div className="flex justify-between items-center text-xs font-mono font-bold">
-                  <span className="text-red-700 dark:text-red-400">{sos.title}</span>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-red-600 text-white">{sos.priority}</span>
+
+                  <span className="text-red-700 dark:text-red-400">
+                    {sos.title}
+                  </span>
+
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-red-600 text-white">
+                    {sos.priority}
+                  </span>
+
                 </div>
-                <p className="text-sm font-black">"{sos.text}"</p>
+
+                <p className="text-sm font-black">
+                  "{sos.text}"
+                </p>
+
                 <div className="flex gap-2 pt-2">
+
                   <button
-                    onClick={() => setFullscreenCard(sos.text)}
+                    type="button"
+                    onClick={() =>
+                      setFullscreenCard(sos.text)
+                    }
                     className="flex-1 py-2 rounded-lg text-xs font-mono font-bold uppercase border bg-red-600 text-white flex items-center justify-center gap-1.5"
                   >
                     <Maximize2 className="w-3.5 h-3.5" />
                     <span>Giant Flash Screen</span>
                   </button>
+
                   <button
+                    type="button"
                     onClick={() => speakText(sos.text)}
                     className={`p-2 rounded-lg border text-xs ${cardBg} ${borderTone}`}
                     title="Speak"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
                   </button>
+
                 </div>
               </div>
             ))}
+
           </div>
 
           <p className="text-[11px] font-mono opacity-70 text-red-950 dark:text-red-200">
             Notice: This app displays communication cards on screen; it does not automatically call emergency services or dispatch personnel without an active integration.
           </p>
+
         </div>
       )}
 
-      {/* FULLSCREEN CARD MODAL */}
+      {/* ===================================================== */}
+      {/* FULLSCREEN COMMUNICATION CARD                        */}
+      {/* ===================================================== */}
+
       {fullscreenCard && (
-        <div className={`fixed inset-0 z-[140] flex flex-col justify-between p-6 sm:p-12 ${bgCanvas} ${textPrimary} animate-in zoom-in-95 duration-200`}>
+        <div
+          className={`fixed inset-0 z-[140] flex flex-col justify-between p-6 sm:p-12 ${bgCanvas} ${textPrimary} animate-in zoom-in-95 duration-200`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Fullscreen communication card"
+        >
+
           <div className="flex justify-between items-center">
-            <span className={`text-xs font-mono font-bold uppercase tracking-widest px-4 py-2 rounded-xl border-2 ${borderTone} ${cardInnerBg}`}>
+
+            <span
+              className={`text-xs font-mono font-bold uppercase tracking-widest px-4 py-2 rounded-xl border-2 ${borderTone} ${cardInnerBg}`}
+            >
               HIGH-CONTRAST COMMUNICATION CARD
             </span>
+
             <button
+              type="button"
               onClick={() => setFullscreenCard(null)}
               className={`px-6 py-3 rounded-xl border-2 ${borderTone} ${accentSolid} font-black text-sm uppercase tracking-wider hover:opacity-90`}
             >
               Close [Esc]
             </button>
+
           </div>
 
           <div className="text-center my-auto px-4 max-w-4xl mx-auto">
-            <div className={`py-12 sm:py-24 px-8 rounded-3xl border-8 ${isDarkTheme ? 'border-[#FDF1E2] bg-[#AB92BF]/10' : 'border-[#655A7C] bg-[#655A7C]/5'} shadow-2xl`}>
+
+            <div
+              className={`py-12 sm:py-24 px-8 rounded-3xl border-8 ${
+                isDarkTheme
+                  ? 'border-[#FDF1E2] bg-[#AB92BF]/10'
+                  : 'border-[#655A7C] bg-[#655A7C]/5'
+              } shadow-2xl`}
+            >
+
               <p className="text-3xl sm:text-6xl font-black tracking-tight leading-tight">
                 "{fullscreenCard}"
               </p>
+
             </div>
+
           </div>
 
           <div className="text-center text-xs font-mono font-bold uppercase tracking-widest opacity-60">
             Show directly to hearing staff
           </div>
+
         </div>
       )}
 

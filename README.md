@@ -586,3 +586,241 @@ The following engineering goals are documented in the repository architecture fo
 - [ ] **Expanded Directory Records**: Broaden verified accessibility audit records across tier-2 and tier-3 Indian cities for district collectorates, passport offices, and transport stations.
 - [ ] **Offline PWA Service Worker Asset Caching**: Complete service worker (`sw.js`) precaching for zero-network phrasebook navigation on mobile devices.
 - [ ] **Audio Feedback for Counter Staff**: Expand staff-facing audio chime notifications when an ISL user confirms a communication card.
+
+## 2. Multimodal Vision & Document OCR
+
+*Route: `/ai-studio` (Tab: Vision & OCR)*
+
+SignMitra provides a multimodal visual analysis workflow for uploaded images and documents. The Vision & OCR suite is implemented as four related workflows:
+
+* **Queue & Token Reader**
+* **Text Reader (OCR)**
+* **Notice & Documents**
+* **Image Description**
+
+### Supported visual workflows
+
+* **Upload & Camera Capture**: Supports drag-and-drop file uploads, local image browsing, and live webcam snapshots.
+* **Deterministic Pillow Validation**: Pillow validates the uploaded image before AI inference, including supported image formats (PNG, JPEG, WebP), file size limits ($\le 5,\text{MB}$), image readability, and minimum dimensions.
+* **Live Multimodal Vision**: The configured AI provider analyzes the actual uploaded image rather than relying on hardcoded document templates.
+* **Queue & Token Extraction**: Extracts visible token numbers, counter information, department information, dates, times, and queue-related instructions when supported by the image.
+* **General OCR**: Extracts visible printed text and presents it in an editable verification area.
+* **Document Understanding**: Identifies document types and extracts relevant structured information such as document numbers, order numbers, dates, times, items/services, quantities, amounts, totals, payment details, instructions, and other visible fields.
+* **Privacy-Safe Image Description**: Provides an objective visual description when meaningful visual content is available. The system does not perform facial recognition or infer sensitive personal attributes.
+* **Generic Document Handling**: The vision pipeline is not restricted to hospital documents. It can process receipts, restaurant bills, hospital bills, notices, tickets, forms, application documents, and other supported visual documents according to the information actually visible in the image.
+* **Review Before Use**: Extracted information remains subject to user review and confirmation before it is used for communication or follow-up actions.
+* **No Fabricated Extraction**: When information is not visible, unreadable, or unavailable, the system does not invent values.
+
+### Current verified provider
+
+The current tested SignMitra configuration uses **Groq Vision** through the centralized AI provider adapter.
+
+The provider layer is designed so that vision inference can be routed through supported providers without requiring changes to the VisionSuite frontend workflow.
+
+---
+
+## Technology Stack
+
+| Layer                   | Technology                                                 | Version             | Purpose in SignMitra                                                                                                                  |
+| :---------------------- | :--------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------ |
+| **Frontend Framework**  | [Next.js](https://nextjs.org/) (App Router)                | `16.3.6`            | Client/server rendering, static page generation (33 routes), client-side routing, and API proxy handlers.                             |
+| **UI Library**          | [React](https://react.dev/)                                | `19.2.8`            | Component state management, interaction flows, and reactive UI updates.                                                               |
+| **Styling**             | [Tailwind CSS](https://tailwindcss.com/)                   | `^4.0`              | Accessible 3-color palette design system (Linen `#FDF1E2`, Amethyst `#AB92BF`, Dolphin `#655A7C`), responsive layouts, and dark mode. |
+| **Icons**               | [Lucide React](https://lucide.dev/)                        | `^1.48.0`           | Accessible iconography for counter navigation, status indicators, and domain actions.                                                 |
+| **Backend Framework**   | [FastAPI](https://fastapi.tiangolo.com/)                   | `^0.110.0`          | High-performance Python async backend, REST API routers, Pydantic data validation, and OpenAPI documentation.                         |
+| **ASGI Server**         | [Uvicorn](https://www.uvicorn.org/)                        | `^0.28.0`           | Fast ASGI server running the FastAPI backend on `127.0.0.1:8000`.                                                                     |
+| **Database & ORM**      | [SQLAlchemy](https://www.sqlalchemy.org/) & SQLite         | `^2.0.0`            | Lightweight, zero-configuration local persistence for sessions, verified directory records, and task history.                         |
+| **Data Validation**     | [Pydantic](https://docs.pydantic.dev/) & Pydantic-Settings | `^2.6.0`            | Request/response schema validation and environment configuration parsing.                                                             |
+| **Image Processing**    | [Pillow (PIL)](https://python-pillow.org/)                 | `^10.2.0`           | Deterministic image decoding, format verification (JPEG/PNG/WebP), size bounds checking, and dimension validation.                    |
+| **AI Provider Adapter** | Custom multi-provider adapter                              | —                   | Centralized routing for text and multimodal AI providers without coupling application features to a single provider SDK.              |
+| **Vision Inference**    | Groq Vision                                                | Configured provider | Live multimodal image/document understanding in the currently verified configuration.                                                 |
+| **Text AI**             | Groq and supported provider adapters                       | Configured provider | Rewriting, translation, reasoning, rehearsal, and other AI-assisted workflows.                                                        |
+| **HTTP Client**         | [HTTPX](https://www.python-httpx.org/)                     | `^0.27.0`           | Async HTTP client for multi-provider API calls (Groq, Cerebras, OpenAI, Ollama).                                                      |
+| **QR Code Generation**  | qrcode.react                                               | `^4.2.0`            | Offline generation of emergency contact QR codes for first responders.                                                                |
+| **Browser APIs**        | Web Speech API & MediaDevices                              | Native              | Client-side real-time speech recognition, text-to-speech synthesis, and camera capture.                                               |
+
+---
+
+## AI, Vision, and Provider Behavior
+
+### Multi-Provider Routing Architecture
+
+SignMitra uses a centralized provider adapter so application features do not directly depend on a single AI SDK.
+
+The architecture supports configured AI providers for different workloads, including:
+
+* **Groq** — current verified provider for text inference and multimodal Vision workflows.
+* **Google Gemini** — supported provider option where configured.
+* **Cerebras** — supported text inference provider option.
+* **OpenAI** — supported provider option.
+* **Ollama** — optional local/private inference provider.
+
+The active provider is determined by application configuration and available credentials.
+
+### Vision Processing Flow
+
+The Vision & OCR workflow follows this path:
+
+```text
+User Image
+    ↓
+Next.js VisionSuite
+    ↓
+Next.js /api/ai-studio proxy
+    ↓
+FastAPI /api/ai-studio
+    ↓
+Vision / OCR Service
+    ↓
+Pillow validation + image decoding
+    ↓
+Centralized AI Provider Adapter
+    ↓
+Configured Vision Model
+    ↓
+Structured JSON result
+    ↓
+Next.js VisionSuite
+    ↓
+Human Review / Confirmation
+```
+
+### Verified Vision Workflows
+
+The current Vision & OCR implementation has been verified across:
+
+1. **Queue & Token Reader**
+
+   * Token numbers
+   * Counter information
+   * Department information
+   * Dates and times
+   * Queue-related instructions
+
+2. **Text Reader (OCR)**
+
+   * Visible printed text
+   * Editable extracted text
+   * Copyable OCR output
+
+3. **Notice & Documents**
+
+   * Document type
+   * Document/order numbers
+   * Dates and times
+   * Amounts
+   * Items/services
+   * Quantities
+   * Payment details when visible
+   * Instructions
+   * Other relevant visible fields
+
+4. **Image Description**
+
+   * Privacy-safe objective visual description
+   * No facial recognition
+   * No sensitive personal attribute inference
+   * No fabricated description when meaningful visual information is unavailable
+
+### Generic Visual Document Handling
+
+The Vision & OCR pipeline is designed for general visual documents rather than a single document category.
+
+Verified testing includes visual documents such as:
+
+* Hospital bills
+* Restaurant bills and receipts
+* Notices
+* Queue/token slips
+* Forms
+* Application documents
+* Other printed documents containing extractable visual information
+
+The structured output is based on information actually visible in the uploaded image.
+
+### Provider Failure and Quota Handling
+
+External AI providers can impose rate limits, quota limits, or temporary failures.
+
+When live inference is unavailable:
+
+* The system does not fabricate OCR or vision output.
+* The uploaded image can remain available for user review.
+* The UI exposes the unavailable/failure state instead of presenting generated information as factual.
+* Deterministic and offline workflows remain available where supported.
+* Provider errors are surfaced through the application's provenance and status handling.
+
+---
+
+## Privacy, Safety, and Ethical Boundaries
+
+1. **No Sensitive Personal Attribute Inference**: Vision workflows do not intentionally identify people, perform facial recognition, estimate demographic traits, or infer sensitive personal attributes.
+
+2. **Objective Image Description**: Image descriptions are limited to observable visual information. The system should not infer identity, protected characteristics, or sensitive personal information from appearance.
+
+3. **Explicit User Approval Gate**: AI-generated rewrites, translations, OCR results, document extraction, and other AI-assisted outputs are subject to user review before being used in communication or follow-up actions.
+
+4. **No Fabricated Information**: Vision extraction is instructed to use only information supported by the uploaded image. Missing, unreadable, or unavailable information is represented as unavailable rather than guessed.
+
+5. **Provenance Transparency**: AI-generated information is labeled as AI-generated, while deterministic validation, curated phrasebook content, and user-entered information remain distinguishable.
+
+6. **Local Storage First**: Session state, follow-up tasks, and preferences use the application's configured local persistence mechanisms.
+
+7. **Honest ISL Recognition Boundary**: Automated ISL gesture recognition remains explicitly dependent on verified model weights. The application does not fabricate recognition results when those weights are unavailable.
+
+8. **Credential Protection**: Provider credentials are server-side configuration values and should never be committed to source control or exposed to the browser.
+
+9. **Human Verification for Visual Information**: OCR, document extraction, queue information, and image descriptions are assistive outputs rather than authoritative records. Users should verify important dates, amounts, token numbers, instructions, and other consequential information against the original visual source before acting on them.
+
+---
+
+## Screenshots & Demo
+
+The Vision & OCR interface currently includes four verified workflows:
+
+```text
+1. Queue & Token Reader
+   → Token / counter / queue-related extraction
+
+2. Text Reader (OCR)
+   → Editable extracted text + copy workflow
+
+3. Notice & Documents
+   → Structured document type, fields, items, dates and amounts
+
+4. Image Description
+   → Privacy-safe objective visual description
+```
+
+Recommended screenshots for project documentation:
+
+* Two-Way Room with draft rewriting and human review
+* Queue/token slip extraction
+* OCR extracted text with editable verification
+* Hospital/restaurant/receipt/document structured extraction
+* Privacy-safe image description
+* Human review-before-use state
+* Verified accessibility directory records
+* Ambiguity scanner with detected relative dates such as *"tomorrow morning"*
+
+Store verified screenshot assets in `public/screenshots/` and link them here when available.
+
+---
+
+## Roadmap
+
+The following engineering goals remain future work:
+
+* [ ] **ISL ONNX Weight Integration**: Train and mount spatial-temporal GCN/BiLSTM weights (`backend/model_weights/isl_classifier.onnx`) against the ISLRTC 10,000-word dataset for live gesture recognition.
+* [ ] **Expanded Directory Records**: Broaden verified accessibility audit records across tier-2 and tier-3 Indian cities for district collectorates, passport offices, and transport stations.
+* [ ] **Offline PWA Service Worker Asset Caching**: Complete service worker (`sw.js`) precaching for zero-network phrasebook navigation on mobile devices.
+* [ ] **Audio Feedback for Counter Staff**: Expand staff-facing audio chime notifications when an ISL user confirms a communication card.
+
+The **Vision & OCR suite is not listed as a roadmap item because its four workflows are already implemented and verified**:
+
+* Queue & Token Reader
+* Text Reader (OCR)
+* Notice & Documents
+* Image Description
+
+The current verified Vision configuration uses **Groq Vision** through the centralized AI provider adapter. Future provider changes or additional multimodal providers can be integrated through the provider layer without requiring a redesign of the VisionSuite workflow.

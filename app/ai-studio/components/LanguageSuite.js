@@ -184,6 +184,17 @@ export default function LanguageSuite() {
     }
   };
 
+  useEffect(() => {
+  if (!fullscreenCard) return;
+
+  const previousOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  return () => {
+    document.body.style.overflow = previousOverflow;
+  };
+}, [fullscreenCard]);
+
   // =========================================================
   // 1. COMPOSE CARD
   // =========================================================
@@ -1311,11 +1322,15 @@ export default function LanguageSuite() {
 
       {fullscreenCard && (
         <div
-          className={`fixed inset-0 z-[140] flex flex-col justify-between p-6 sm:p-12 ${bgCanvas} ${textPrimary} animate-in zoom-in-95 duration-200`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Fullscreen communication card"
-        >
+  style={{
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#9ca3af #f3f4f6',
+  }}
+  className={`fixed inset-0 z-[140] flex flex-col justify-between overflow-y-auto overflow-x-hidden overscroll-contain p-6 sm:p-12 ${bgCanvas} ${textPrimary}`}
+  role="dialog"
+  aria-modal="true"
+  aria-label="Fullscreen communication card"
+>
 
           <div className="flex justify-between items-center">
 

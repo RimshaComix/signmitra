@@ -46,6 +46,17 @@ export default function Phrasebook() {
     }
   }, []);
 
+  useEffect(() => {
+  if (!activeLargeText) return;
+
+  const previousOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  return () => {
+    document.body.style.overflow = previousOverflow;
+  };
+}, [activeLargeText]);
+
   const savePhrases = (updatedPhrases) => {
     setPhrases(updatedPhrases);
     localStorage.setItem('signmitra_phrasebook', JSON.stringify(updatedPhrases));
@@ -120,7 +131,13 @@ export default function Phrasebook() {
 
       {/* Large Text Modal Overlay */}
       {activeLargeText && (
-        <div className={`fixed inset-0 z-[100] flex flex-col ${bgCanvas} ${textPrimary} p-6 sm:p-12 overflow-y-auto`}>
+        <div
+  style={{
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#9ca3af #f3f4f6',
+  }}
+  className={`fixed inset-0 z-[100] flex flex-col ${bgCanvas} ${textPrimary} p-6 sm:p-12 overflow-y-auto`}
+>
           <div className="flex justify-between items-center mb-12">
              <span className={`text-xs font-mono font-bold uppercase tracking-widest opacity-80 px-3 py-1 rounded-full border ${borderTone}`}>
                 SignMitra High-Visibility Mode

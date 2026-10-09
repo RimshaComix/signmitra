@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -68,7 +69,7 @@ export default function QueueCompanion() {
   const [isEditing, setIsEditing] = useState(false);
   const [newDocText, setNewDocText] = useState('');
   const [isLargeDisplayMode, setIsLargeDisplayMode] = useState(false);
-  const [isDemo, setIsDemo] = useState(true); // Flag to show it's demo data initially
+  const [isDemo, setIsDemo] = useState(true);
 
   useEffect(() => {
     const saved = localStorage.getItem('signmitra_queue_active');
@@ -76,12 +77,24 @@ export default function QueueCompanion() {
       try {
         const parsed = JSON.parse(saved);
         setActiveToken(parsed);
-        setIsDemo(parsed.isDemo === undefined ? false : parsed.isDemo); // If saved data exists, it's not demo unless explicitly flagged
+        setIsDemo(parsed.isDemo === undefined ? false : parsed.isDemo);
       } catch (e) {
         console.error('Failed to parse saved token', e);
       }
     }
   }, []);
+
+  // Scrollbar fix: prevent the page behind the fullscreen overlay from scrolling.
+  useEffect(() => {
+    if (!isLargeDisplayMode) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isLargeDisplayMode]);
 
   const saveToStorage = (updatedState, demoStatus = false) => {
     setActiveToken(updatedState);
@@ -128,7 +141,7 @@ export default function QueueCompanion() {
         documentsNeeded: [],
         notes: 'Please alert me visually when my token is called. I may not hear a spoken announcement.'
       };
-      saveToStorage(emptyState, false); // No longer demo data
+      saveToStorage(emptyState, false);
       setIsEditing(true);
     }
   };
@@ -137,8 +150,8 @@ export default function QueueCompanion() {
   const currentStageIndex = getStageIndex(activeToken.currentStage);
 
   return (
-    <div className={`min-h-screen transition-colors duration-200 font-sans antialiased flex flex-col justify-between ${bgCanvas} ${textPrimary}`}>
-      
+    <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-200 font-sans antialiased flex flex-col ${bgCanvas} ${textPrimary}`}>
+
       {/* Top Header */}
       <div className={`w-full border-b py-3 px-4 sm:px-8 text-xs font-mono flex justify-between items-center ${borderTone} ${cardBg} z-10 sticky top-0`}>
         <div className="flex items-center gap-3">
@@ -163,8 +176,8 @@ export default function QueueCompanion() {
         </div>
       </div>
 
-      <main className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-8 flex-1 flex flex-col">
-        
+      <main className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-8 flex-1 flex flex-col min-w-0">
+
         {/* Header Ribbon */}
         <header className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b ${borderTone} mb-6`}>
           <div>
@@ -200,9 +213,6 @@ export default function QueueCompanion() {
         </header>
 
         {isEditing ? (
-          /* ======================================================== */
-          /* EDIT FORM: UPDATE QUEUE DATA                            */
-          /* ======================================================== */
           <div className={`p-6 rounded-2xl border ${borderTone} ${cardBg} space-y-6 animate-in fade-in duration-200`}>
             <div>
               <h2 className="text-xl font-black uppercase tracking-tight">Configure Tracker</h2>
@@ -288,7 +298,7 @@ export default function QueueCompanion() {
               <button
                 type="button"
                 onClick={() => {
-                  saveToStorage(activeToken, false); // Saving explicitly removes demo status
+                  saveToStorage(activeToken, false);
                   setIsEditing(false);
                 }}
                 className={`flex-1 py-4 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${accentSolid} hover:opacity-90 focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-[#655A7C] focus-visible:outline-none shadow-sm`}
@@ -298,15 +308,12 @@ export default function QueueCompanion() {
             </div>
           </div>
         ) : (
-          /* ======================================================== */
-          /* VIEW MODE: VISUAL STAGE TRACKER & DETAILS               */
-          /* ======================================================== */
           <div className="space-y-6 animate-in fade-in duration-200">
-            
+
             {isDemo && (
               <div className={`p-4 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-start gap-3 text-xs font-mono font-bold`}>
-                 <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                 <p>Showing sample data. Tap <strong>EDIT INFO</strong> above to track your real appointment.</p>
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                <p>Showing sample data. Tap <strong>EDIT INFO</strong> above to track your real appointment.</p>
               </div>
             )}
 
@@ -349,7 +356,7 @@ export default function QueueCompanion() {
               </button>
             </div>
 
-            {/* Stage Progress Stepper (MANUAL) */}
+            {/* Stage Progress Stepper */}
             <div className={`p-5 sm:p-7 rounded-2xl border ${borderTone} ${cardBg} shadow-sm space-y-5`}>
               <div className="flex justify-between items-center">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider opacity-70">
@@ -360,31 +367,28 @@ export default function QueueCompanion() {
                 </span>
               </div>
 
-              {/* Vertical Stepper UI */}
               <div className="space-y-0 relative before:absolute before:inset-0 before:ml-[1.4rem] before:h-full before:w-0.5 before:bg-gradient-to-b before:from-[#655A7C]/40 before:to-transparent">
                 {STATUS_STAGES.map((st, idx) => {
                   const isActive = activeToken.currentStage === st.id;
                   const isPast = idx < currentStageIndex;
-                  
+
                   return (
                     <div key={st.id} className="relative flex items-center gap-4 py-2 group">
-                      {/* Step Circle */}
-                      <button 
+                      <button
                         onClick={() => handleStageChange(st.id)}
                         className="relative z-10 w-12 h-12 flex items-center justify-center shrink-0 focus-visible:ring-4 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded-full"
                         aria-label={`Set status to ${st.label}`}
                       >
-                         <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
-                            isActive ? 'border-[#655A7C] bg-[#655A7C] text-[#FDF1E2] scale-110' : 
-                            isPast ? 'border-[#655A7C] bg-[#655A7C]/20 text-[#655A7C] dark:text-[#AB92BF]' : 
-                            `${borderTone}${cardInnerBg} text-transparent hover:border-[#655A7C]`
-                         }`}>
-                            {isActive || isPast ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-3 h-3" />}
-                         </div>
+                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                          isActive ? 'border-[#655A7C] bg-[#655A7C] text-[#FDF1E2] scale-110' :
+                          isPast ? 'border-[#655A7C] bg-[#655A7C]/20 text-[#655A7C] dark:text-[#AB92BF]' :
+                          `${borderTone}${cardInnerBg} text-transparent hover:border-[#655A7C]`
+                        }`}>
+                          {isActive || isPast ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-3 h-3" />}
+                        </div>
                       </button>
-                      
-                      {/* Step Label */}
-                      <button 
+
+                      <button
                         onClick={() => handleStageChange(st.id)}
                         className={`flex-1 text-left py-2 px-3 rounded-lg transition-all ${isActive ? 'bg-[#655A7C]/5' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
                       >
@@ -423,11 +427,9 @@ export default function QueueCompanion() {
                       onClick={() => toggleDocCheck(doc.id)}
                       className="flex items-center gap-3 text-left flex-1 py-2 focus-visible:ring-2 focus-visible:ring-[#655A7C] focus-visible:outline-none rounded-lg"
                     >
-                      <div
-                        className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${
-                          doc.checked ? 'border-[#655A7C] bg-[#655A7C] text-[#FDF1E2]' : borderTone
-                        }`}
-                      >
+                      <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${
+                        doc.checked ? 'border-[#655A7C] bg-[#655A7C] text-[#FDF1E2]' : borderTone
+                      }`}>
                         {doc.checked && <Check className="w-4 h-4" />}
                       </div>
                       <span className={`transition-all ${doc.checked ? 'opacity-50 line-through' : ''}`}>
@@ -445,7 +447,6 @@ export default function QueueCompanion() {
                 ))}
               </div>
 
-              {/* Add checklist item */}
               <form onSubmit={addDocument} className="flex gap-2 pt-2">
                 <input
                   type="text"
@@ -480,8 +481,14 @@ export default function QueueCompanion() {
 
       {/* FULLSCREEN TOKEN DISPLAY OVERLAY */}
       {isLargeDisplayMode && (
-        <div className={`fixed inset-0 z-[100] flex flex-col justify-between p-6 sm:p-12 ${bgCanvas} ${textPrimary} animate-in zoom-in-95 duration-200`}>
-          
+        <div
+  style={{
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#9ca3af #f3f4f6',
+  }}
+  className={`fixed inset-0 z-[100] flex flex-col overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-8 ${bgCanvas} ${textPrimary} animate-in zoom-in-95 duration-200`}
+>
+
           <div className="flex justify-between items-center">
             <span className={`text-xs font-mono font-bold uppercase tracking-widest px-4 py-2 rounded-lg border-2 ${borderTone} ${cardInnerBg}`}>
               TOKEN DISPLAY
@@ -494,17 +501,17 @@ export default function QueueCompanion() {
             </button>
           </div>
 
-          <div className="text-center my-auto space-y-6">
+          <div className="text-center my-6 space-y-6">
             <span className="text-lg sm:text-xl font-mono font-bold uppercase tracking-widest opacity-70 block">
               MY TOKEN NUMBER IS
             </span>
-            
+
             <div className={`py-12 sm:py-20 rounded-3xl border-8 ${isDarkTheme ? 'border-[#FDF1E2] bg-[#AB92BF]/10' : 'border-[#655A7C] bg-[#655A7C]/5'} shadow-2xl mx-auto max-w-2xl`}>
-               <p className="text-8xl sm:text-[9rem] font-black font-mono tracking-tighter leading-none">
-                 {activeToken.tokenNumber || '---'}
-               </p>
+              <p className="text-8xl sm:text-[9rem] font-black font-mono tracking-tighter leading-none">
+                {activeToken.tokenNumber || '---'}
+              </p>
             </div>
-            
+
             {activeToken.locationRoom && (
               <p className="text-2xl sm:text-4xl font-black uppercase tracking-tight mt-6">
                 Going to: {activeToken.locationRoom}
@@ -530,8 +537,8 @@ export default function QueueCompanion() {
       <footer className={`border-t py-6 px-4 sm:px-8 text-xs font-mono flex flex-col sm:flex-row justify-between items-center gap-2 ${borderTone} ${cardInnerBg}`}>
         <span className="font-bold">SignMitra Queue Tracker</span>
         <div className="flex items-center gap-2 opacity-70">
-           <div className={`w-2 h-2 rounded-full animate-pulse ${isDarkTheme ? 'bg-[#FDF1E2]' : 'bg-[#655A7C]'}`} aria-hidden="true" />
-           Saved on this device
+          <div className={`w-2 h-2 rounded-full animate-pulse ${isDarkTheme ? 'bg-[#FDF1E2]' : 'bg-[#655A7C]'}`} aria-hidden="true" />
+          Saved on this device
         </div>
       </footer>
 

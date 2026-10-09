@@ -299,8 +299,14 @@ export default function AIStudioPage() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-200 font-sans antialiased flex flex-col justify-between ${bgCanvas} ${textPrimary}`}
-    >
+  style={{
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#9ca3af #f3f4f6',
+    overflowY: 'auto',
+    minHeight: '100vh',
+  }}
+  className={`transition-colors duration-200 font-sans antialiased flex flex-col ${bgCanvas} ${textPrimary}`}
+>
 
       {/* =========================================================
           TOP SYSTEM HEADER

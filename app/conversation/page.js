@@ -96,6 +96,20 @@ export default function ConversationAssist() {
     setShowRepairToolkit(false);
   };
 
+    // Prevent background scrolling while either fullscreen overlay is open.
+  useEffect(() => {
+    const isOverlayOpen = Boolean(activeLargeText) || showSummaryModal;
+    const previousOverflow = document.body.style.overflow;
+
+    if (isOverlayOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [activeLargeText, showSummaryModal]);
+
   const handleDetailConfirmRequest = () => {
     if (!confirmDetailValue.trim()) return;
 
@@ -353,7 +367,13 @@ export default function ConversationAssist() {
           aria-modal="true"
           aria-labelledby="summary-modal-title"
         >
-          <div className={`w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto no-scrollbar rounded-2xl border ${borderTone} ${bgCanvas} shadow-2xl animate-in zoom-in-95 duration-200`}>
+          <div
+  style={{
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#9ca3af #f3f4f6',
+  }}
+  className={`w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto rounded-2xl border ${borderTone} ${bgCanvas} shadow-2xl animate-in zoom-in-95 duration-200`}
+>
             
             {saveSuccess ? (
               <div className="py-12 text-center space-y-3" role="alert" aria-live="assertive">
@@ -465,8 +485,12 @@ export default function ConversationAssist() {
 
       {/* Large Text Modal Overlay */}
       {activeLargeText && (
-        <div 
-          className={`fixed inset-0 z-[100] flex flex-col ${bgCanvas} ${textPrimary} p-6 sm:p-12 overflow-y-auto`}
+        <div
+  style={{
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#9ca3af #f3f4f6',
+  }}
+  className={`fixed inset-0 z-[100] flex flex-col ${bgCanvas} ${textPrimary} p-6 sm:p-12 overflow-y-auto`}
           role="dialog"
           aria-modal="true"
           aria-label="High-Visibility Mode"
@@ -492,8 +516,8 @@ export default function ConversationAssist() {
       )}
 
       {/* Main Chat Stream */}
-      <main 
-        className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col pb-8 overflow-y-auto no-scrollbar"
+            <main 
+        className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col pb-8 no-scrollbar"
         aria-live="polite"
         aria-relevant="additions"
       >

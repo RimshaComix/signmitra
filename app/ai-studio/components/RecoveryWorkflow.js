@@ -348,6 +348,17 @@ export default function RecoveryWorkflow({
     };
   }, [fullscreenCard]);
 
+  useEffect(() => {
+  if (!fullscreenCard) return;
+
+  const previousOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  return () => {
+    document.body.style.overflow = previousOverflow;
+  };
+}, [fullscreenCard]);
+
   // ---------------------------------------------------------------------------
   // SPEECH
   // ---------------------------------------------------------------------------
@@ -2359,12 +2370,16 @@ export default function RecoveryWorkflow({
       {/* ========================================================================= */}
 
       {fullscreenCard && (
-        <div
-          className={`fixed inset-0 z-[130] flex flex-col justify-between p-6 sm:p-12 ${bgCanvas} ${textPrimary} animate-in zoom-in-95 duration-200`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Communication card"
-        >
+  <div
+    style={{
+      scrollbarWidth: 'thin',
+      scrollbarColor: '#9ca3af #f3f4f6',
+    }}
+    className={`fixed inset-0 z-[130] flex flex-col justify-between overflow-y-auto overflow-x-hidden overscroll-contain p-6 sm:p-12 ${bgCanvas} ${textPrimary}`}
+    role="dialog"
+    aria-modal="true"
+    aria-label="Communication card"
+  >
           <div className="flex justify-between items-center gap-4">
             <span
               className={`text-xs font-mono font-bold uppercase tracking-widest px-4 py-2 rounded-xl border-2 ${borderTone} ${cardInnerBg}`}

@@ -1,295 +1,309 @@
 # SignMitra
 
-> **Accessible Communication Companion for Indian Sign Language (ISL) Users**  
-> Bridging communication barriers at public counters, educational institutions, healthcare desks, and transit hubs through visual cards, human-in-the-loop AI assistance, and verified accessibility tools.
+> **An accessible counter-communication companion for Indian Sign Language (ISL) users.**
+> Visual cards, human-in-the-loop AI assistance, and verified accessibility information for public counters: colleges, banks, hospitals, and transit hubs.
+
+**Status:** working prototype · **Stack:** Next.js + FastAPI · **Works offline:** core phrasebook, simplification, and fallbacks
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-  - [The Problem](#the-problem)
-  - [The Solution](#the-solution)
-  - [Intended Scope & Limitations](#intended-scope--limitations)
+- [Scope and Limitations](#scope-and-limitations)
 - [Key Features](#key-features)
-  - [Two-Way Communication Room](#1-two-way-communication-room)
-  - [Multimodal Vision & Document OCR](#2-multimodal-vision--document-ocr)
-  - [Indian Language Tools & Simplification](#3-indian-language-tools--simplification)
-  - [Interaction Copilot & Ambiguity Detection](#4-interaction-copilot--ambiguity-detection)
-  - [Practice Rehearsal Simulator](#5-practice-rehearsal-simulator)
-  - [Verified Accessibility Directory](#6-verified-accessibility-directory)
-  - [ISL Recognition Pipeline (Engineering Status)](#7-isl-recognition-pipeline-engineering-status)
-  - [Domain-Specific Action Suites](#8-domain-specific-action-suites)
-- [Screenshots & Demo](#screenshots--demo)
+- [Design Principles](#design-principles)
+- [Demo and Screenshots](#demo-and-screenshots)
 - [Technology Stack](#technology-stack)
-- [Architecture & Project Structure](#architecture--project-structure)
-  - [System Architecture & Request Flow](#system-architecture--request-flow)
-  - [Directory Tree](#directory-tree)
+- [Architecture](#architecture)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
-  - [Windows (PowerShell)](#windows-powershell)
-  - [macOS / Linux (Bash)](#macos--linux-bash)
 - [Environment Variables](#environment-variables)
 - [Running the Application](#running-the-application)
 - [API Documentation](#api-documentation)
-- [Testing & Quality Verification](#testing--quality-verification)
+- [Testing](#testing)
 - [AI, Vision, and Provider Behavior](#ai-vision-and-provider-behavior)
 - [Privacy, Safety, and Ethical Boundaries](#privacy-safety-and-ethical-boundaries)
 - [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
-- [Roadmap](#roadmap)
 
 ---
 
 ## Overview
 
 ### The Problem
-Deaf and Hard-of-Hearing individuals across India who communicate using Indian Sign Language (ISL) routinely encounter barriers when visiting administrative counters—such as university registrars, bank windows, hospital outpatient departments (OPDs), and railway ticket counters—where hearing staff do not understand ISL. 
 
-These interactions frequently suffer from:
+Deaf and Hard-of-Hearing people who use Indian Sign Language routinely face barriers at administrative counters (university registrars, bank windows, hospital OPDs, railway ticket counters) where staff do not understand ISL. Typical failures:
+
 - Communication breakdowns and long delays.
-- Vague verbal instructions (e.g., *"Come back tomorrow morning with the prescribed form"* without naming the form or counter).
-- Misunderstandings regarding critical deadlines, fees, and required documents.
-- Reliance on ad-hoc paper notes or third-party interpreters who may not always be available.
+- Vague verbal instructions such as *"Come back tomorrow morning with the prescribed form"*, with no form name, counter, or time.
+- Misunderstood deadlines, fees, and required documents.
+- Dependence on ad-hoc paper notes or interpreters who are not always available.
 
 ### The Solution
-**SignMitra** is a full-stack communication companion designed to empower ISL users to interact independently and with confidence. It transforms one-sided verbal exchanges into structured, visual, two-way interactions. 
 
-SignMitra combines:
-1. **Deterministic, Offline-First Foundations**: Curated institutional phrasebooks, rule-based text simplification, Pillow-verified image validation, and local session storage that work reliably without external dependencies.
-2. **Human-in-the-Loop AI Enhancement**: Multi-provider LLMs (Groq, Google Gemini, Cerebras, OpenAI, or local Ollama) that rewrite user drafts, translate into regional Indian languages, extract text from documents, and analyze staff replies for ambiguous deadlines or missing details.
-3. **Strict Provenance Transparency**: Every piece of information in the UI is explicitly labeled with its origin—*Live Model Generated*, *Curated Institutional Phrasebook*, *Deterministic Validation*, or *User Entered*—requiring user approval before being placed into a conversation or planner task.
+SignMitra turns a one-sided verbal exchange into a structured, visual, two-way interaction. It helps the user **prepare** before a visit, **communicate** at the desk, **catch vague replies** before leaving, and **follow up** afterwards.
 
-### Intended Scope & Limitations
-- **Communication Companion, Not a Certified Interpreter**: SignMitra is an assistive tool for face-to-face visual communication. It is **not** a certified sign language interpreter, licensed translation authority, or legal representative.
-- **Not an Emergency Dispatch Service**: While SignMitra provides high-contrast emergency cards and communication profiles, it does **not** dispatch emergency services (112) or guarantee response times.
-- **Explicit Review Required**: AI-generated text rewrites, translations, and OCR results must always be reviewed, edited, or confirmed by the user before being shown to counter staff.
+It combines three layers:
+
+1. **Deterministic, offline-first foundations.** A curated phrasebook, rule-based text simplification, Pillow-based image validation, and local session storage that work without any API key.
+2. **Human-in-the-loop AI.** Optional LLM providers rewrite drafts, translate into regional languages, extract text from documents, and flag ambiguous staff replies. Nothing is shown to staff until the user approves it.
+3. **Provenance transparency.** Every output is labeled by origin: *Live Model Generated*, *Curated Institutional Phrasebook*, *Deterministic Validation*, or *User Entered*.
+
+---
+
+## Scope and Limitations
+
+- **A communication companion, not an interpreter.** SignMitra is not a certified sign language interpreter, translation authority, or legal representative.
+- **ISL recognition is not yet available.** The ISL Lab provides a reference catalog and practice mirror only. Automated gesture recognition needs trained model weights that are not included (see [Roadmap](#roadmap)). The app never fabricates predictions.
+- **Not an emergency service.** The Emergency Card is a display aid; it does not contact 112 or guarantee any response.
+- **Review is mandatory.** Rewrites, translations, and OCR results must be reviewed or edited by the user before use.
+- **Text-based by design.** Many ISL users have limited written-language literacy. The app therefore leans on short, high-contrast cards, simplification, and icons. User testing with the Deaf community is still needed (see [Roadmap](#roadmap)).
 
 ---
 
 ## Key Features
 
 ### 1. Two-Way Communication Room
-*Route: `/ai-studio` (Tab: Two-Way Room) & `/conversation`*
-- **Tone-Adjusted Draft Rewriting**: Converts brief user notes into tailored phrasing for Indian public desks across four distinct modes: **Polite**, **Clear**, **Simpler**, and **Urgent**.
-- **Context-Aware Regional Translation**: Translates user messages into Indian languages including Hindi (हिंदी), Tamil (தமிழ்), Marathi (मराठी), Bengali (বাংলা), Telugu (తెలుగు), and Kannada (ಕನ್ನಡ).
-- **Human Review & Approval Gate**: Transformed text is never sent automatically. A side-by-side preview allows the user to review the preserved original draft, edit the transformed text, click **Approve & Display Card**, or discard.
-- **Web Speech API Live Subtitles**: Captures spoken replies from hearing counter staff in real time using the browser's native SpeechRecognition API, explicitly labeled as `Browser Web Speech API · Live Speech Subtitle` (`is_ai: false`). Includes speech synthesis (TTS) playback.
+*Routes: `/ai-studio` (Two-Way Room), `/conversation`*
+
+- **Tone-adjusted rewriting** of short notes into counter-ready phrasing: **Polite**, **Clear**, **Simpler**, **Urgent**.
+- **Regional translation** into Hindi, Tamil, Marathi, Bengali, Telugu, and Kannada.
+- **Approval gate.** Side-by-side view of the original and transformed text; the user edits, then clicks **Approve & Display Card** or discards.
+- **Live speech subtitles** of staff replies via the browser's Web Speech API, labeled `Browser Web Speech API · Live Speech Subtitle` (`is_ai: false`), with text-to-speech playback.
 
 ### 2. Multimodal Vision & Document OCR
-*Route: `/ai-studio` (Tab: Vision & OCR)*
-- **Upload & Camera Capture**: Supports drag-and-drop file uploads, local image browsing, and live webcam snapshots.
-- **Deterministic Pillow Validation**: Validates file format (PNG, JPEG, WebP), file size ($\le 5\,\text{MB}$), and readability dimensions prior to inference.
-- **Multimodal Vision Extraction**: Utilizes configured vision models (Google Gemini `gemini-3.8-flash`) to extract printed notices, queue token slips, and application instructions.
-- **Safe Quota & Fallback Handling**: If provider quota is exhausted (`429 RESOURCE_EXHAUSTED`), the system safely alerts the user with retry hints, preserves the uploaded image and user-entered notes, and never fabricates artificial text.
-- **Editable Verification Area**: All OCR outputs are placed in an editable review panel where user edits reset the confirmation state until explicitly approved.
+*Route: `/ai-studio` (Vision & OCR)*
+
+Four workflows:
+
+| Workflow | What it does |
+| :--- | :--- |
+| **Queue & Token Reader** | Token numbers, counter, department, dates, times, queue instructions |
+| **Text Reader (OCR)** | Visible printed text in an editable, copyable review area |
+| **Notice & Documents** | Document type, numbers, dates, items, quantities, amounts, payment details, instructions |
+| **Image Description** | Objective, privacy-safe description (no face recognition, no attribute inference) |
+
+- **Input:** drag-and-drop, file browse, or webcam snapshot.
+- **Pillow validation before inference:** format (PNG, JPEG, WebP), size (≤ 5 MB), readability, minimum dimensions.
+- **Generic documents:** receipts, bills, notices, tickets, forms, and application documents, based only on what is visible.
+- **No fabrication:** unreadable or missing values are reported as unavailable. Edits reset the confirmation state until the user re-approves.
+- **Graceful failure:** on quota exhaustion the image and notes are preserved and no text is invented (see [Provider Failure Handling](#provider-failure-handling)).
 
 ### 3. Indian Language Tools & Simplification
-*Route: `/ai-studio` (Tab: Language Tools) & `/phrasebook`*
-- **Offline Curated Phrasebook**: Deterministic dictionary lookups for everyday emergency, medical, banking, and transit phrases across Indian languages without requiring an internet connection or API keys.
-- **Reading-Level Simplification**: Rule-based institutional term replacement (e.g., *mandatory* $\rightarrow$ *required*, *requisition* $\rightarrow$ *request*, *prior to* $\rightarrow$ *before*, *commencing* $\rightarrow$ *starting*) with sentence-level extraction for easier reading.
-- **Unicode Script Language Detection**: Detects language families (Devanagari, Tamil, Bengali, Telugu, Kannada, Latin) based on character block heuristics.
+*Routes: `/ai-studio` (Language Tools), `/phrasebook`*
+
+- **Offline curated phrasebook** for emergency, medical, banking, and transit phrases. No internet or API key needed.
+- **Rule-based simplification** of institutional wording (e.g., *mandatory → required*, *prior to → before*, *commencing → starting*).
+- **Script-based language detection** for Devanagari, Tamil, Bengali, Telugu, Kannada, and Latin.
 
 ### 4. Interaction Copilot & Ambiguity Detection
-*Route: `/ai-studio` (Tab: Recovery Journey) & `/journey/[id]`*
-- **Visit Preparation Checklists**: Generates domain-specific preparation checklists (e.g., student ID, self-attested Aadhaar, fee receipts) and opening phrase cards.
-- **Staff Reply Ambiguity Scanner**: Analyzes staff statements for vague deadlines (*"come tomorrow morning"*), unspecified fees (*"nominal charges"*), or missing counter numbers, alerting the user to clarify before leaving the desk.
-- **Clarification Question Generator**: Produces high-contrast question cards targeting detected gaps (e.g., *"Which specific counter should I submit this form to?"*).
-- **Structured Outcome Summarizer**: Distinguishes **Verified Facts** from **Unresolved Questions**, saving actionable tasks directly into the user's planner.
+*Routes: `/ai-studio` (Recovery Journey), `/journey/[id]`*
+
+- **Visit preparation checklists** (e.g., student ID, self-attested Aadhaar, fee receipts) and opening phrase cards.
+- **Staff reply ambiguity scanner** that flags vague deadlines (*"come tomorrow morning"*), unspecified fees (*"nominal charges"*), and missing counter or form names.
+- **Clarification question cards**, e.g., *"Which counter should I submit this form to?"*
+- **Outcome summarizer** that separates **Verified Facts** from **Unresolved Questions** and saves follow-ups to the planner.
 
 ### 5. Practice Rehearsal Simulator
-*Route: `/ai-studio` (Tab: Rehearsal)*
-- **Interactive Persona Simulation**: Simulates realistic desk counter interactions across College Offices, Bank Branches, Hospital OPDs, and Transit Desks with realistic staff demeanors.
-- **Three-Criteria Rubric Evaluation**: Evaluates user responses against an objective 3-criteria rubric (Clarity of Request, Polite Assertiveness & Accommodations, Practical Readiness / Document Awareness) and computes an overall readiness score (0–100) alongside constructive feedback and realistic staff dialogue.
-- **Deterministic Rubric Fallback**: Provides localized practice guidance even when external AI providers are offline or rate-limited.
+*Route: `/ai-studio` (Rehearsal)*
+
+- Simulated counter conversations for College Office, Bank, Hospital OPD, and Transit Desk with different staff demeanors.
+- Evaluation on a 3-criteria rubric (Clarity of Request; Polite Assertiveness & Accommodations; Practical Readiness / Document Awareness) with a 0–100 readiness score and feedback.
+- **Deterministic rubric fallback** when AI providers are offline or rate-limited.
 
 ### 6. Verified Accessibility Directory
-*Route: `/directory` & `/ai-studio` (Tab: Directory & Evidence)*
-- **Institutional Audit Records**: Searchable database of Indian public institutions (banks, colleges, hospitals, transit terminals) with verified accessibility features:
-  - Sign language interpreters or trained staff.
-  - Electronic visual display screens and queue boards.
-  - Writing pads and pen availability at counters.
-  - Accessible quiet rooms and physical wheelchair access.
-- **Evidence-Grounded Disclosure**: Facilities are reported strictly from audit records; unverified attributes are explicitly tagged as *Not Reported* rather than assumed.
-- **Community Feedback Reporting**: Allows users to report actual accessibility conditions and counter experiences.
+*Routes: `/directory`, `/ai-studio` (Directory & Evidence)*
 
-### 7. ISL Recognition Pipeline (Engineering Status)
-*Route: `/ai-studio` (Tab: ISL Lab) & `/api/isl`*
-- **ISLRTC Functional Sign Reference Catalog**: Includes standard signs codified by the Indian Sign Language Research and Training Centre (ISLRTC) across emergency, healthcare, and administrative domains, detailing handshape, movement, and two-handed execution.
-- **Honest Pipeline Status**: Automated spatial-temporal recognition requires trained model weights at `backend/model_weights/isl_classifier.onnx`. Without mounted weights, the system **does not fabricate predictions** and directs users to visual reference cards.
-- **Webcam Practice Mirror**: A client-side video feed allowing users to practice handshapes and movements against reference descriptions.
+- Searchable records of banks, colleges, hospitals, and transit terminals, covering sign-language-trained staff, visual display boards, writing pads, quiet rooms, and wheelchair access.
+- **Evidence-grounded disclosure:** attributes absent from audit records are shown as *Not Reported*, never assumed.
+- **Community feedback** reporting for actual conditions at counters.
 
-### 8. Domain-Specific Action Suites
+### 7. ISL Lab (Reference and Practice Only)
+*Route: `/ai-studio` (ISL Lab), API: `/api/isl`*
+
+- **ISLRTC functional sign reference catalog** (emergency, healthcare, administrative) with handshape, movement, and one- or two-handed execution.
+- **Webcam practice mirror** (client-side) for comparing your signing with reference descriptions.
+- **Honest pipeline status:** recognition requires `backend/model_weights/isl_classifier.onnx`. Without it, `/api/isl/recognize` reports the missing checkpoint and returns no prediction.
+
+### 8. Domain Action Suites
 *Routes: `/banking`, `/healthcare`, `/education`, `/transport`, `/emergency-card`*
-- Pre-composed communication cards and quick requests for high-frequency scenarios:
-  - **Banking**: KYC form submissions, passbook updates, cash deposit confirmations.
-  - **Healthcare**: Describing symptom onset, OPD registration, requesting visual alerts in waiting rooms.
-  - **Education**: Hall ticket verifications, fee receipt submissions, scholarship inquiries.
-  - **Transport**: Platform inquiries, ticket purchases, conductor visual notification requests.
-  - **Emergency Card**: High-contrast, full-screen emergency medical profile, blood group display, and emergency contact details.
+
+- **Banking:** KYC submission, passbook update, deposit confirmation.
+- **Healthcare:** symptom onset, OPD registration, visual alerts in waiting rooms.
+- **Education:** hall ticket verification, fee receipts, scholarship queries.
+- **Transport:** platform inquiries, ticket purchase, conductor notification requests.
+- **Emergency Card:** full-screen high-contrast medical profile, blood group, emergency contacts, and a QR code.
+
+Also included: **Queue Companion** (`/queue-companion`), **Staff Response** (`/staff-response`), **Follow-ups planner** (`/followups`), and **History** (`/history`).
 
 ---
 
-## Screenshots & Demo
+## Design Principles
 
-> *Visual documentation and interface captures can be added here.*
+1. **Never fabricate.** No guessed OCR text, no fake ISL predictions, no assumed directory facts.
+2. **The user stays in control.** Every AI output passes through an edit-and-approve gate.
+3. **Label everything.** Provenance badges make clear what is AI-generated and what is not.
+4. **Degrade gracefully.** Offline phrasebook, rule-based simplification, and rubric fallbacks keep the app useful when connectivity or quotas fail.
+5. **Accessible by default.** A 3-color high-contrast palette (Linen `#FDF1E2`, Amethyst `#AB92BF`, Dolphin `#655A7C`) with dark mode.
 
-```
-+-----------------------------------------------------------------------------------+
-|                              SCREENSHOT PLACEHOLDER                               |
-|                                                                                   |
-|  1. Two-Way Room: User draft rewrite side-by-side with review & approval gate     |
-|  2. Vision & OCR: Uploaded slip validation, Gemini extraction, & editable review  |
-|  3. Ambiguity Scanner: Detected relative dates ('tomorrow morning') and cards     |
-|  4. Directory: Verified accessibility audit tags (Visual Display, Writing Pad)    |
-|                                                                                   |
-|  Store verified screenshot assets in public/screenshots/ and link them here.      |
-+-----------------------------------------------------------------------------------+
-```
+---
+
+## Demo and Screenshots
+
+> Add assets to `public/screenshots/` and link them here.
+
+Recommended captures:
+
+1. Two-Way Room: draft rewrite with the review and approval gate
+2. Queue/token slip extraction
+3. OCR output in the editable verification area
+4. Structured document extraction (bill, receipt, notice)
+5. Privacy-safe image description
+6. Ambiguity scanner flagging *"tomorrow morning"* with a clarification card
+7. Verified directory records with *Not Reported* tags
+
+**Demo video:** _add link_ · **Live deployment:** _add link_
+
+Suggested demo flow (about 2 minutes): hospital OPD → staff says *"come tomorrow morning"* → scanner flags the ambiguity → clarification card shown → verified facts saved to the planner.
 
 ---
 
 ## Technology Stack
 
-| Layer | Technology | Version | Purpose in SignMitra |
+| Layer | Technology | Version | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Frontend Framework** | [Next.js](https://nextjs.org/) (App Router) | `16.3.6` | Client/server rendering, static page generation (33 routes), client-side routing, and API proxy handlers. |
-| **UI Library** | [React](https://react.dev/) | `19.2.8` | Component state management, interaction flows, and reactive UI updates. |
-| **Styling** | [Tailwind CSS](https://tailwindcss.com/) | `^4.0` | Accessible 3-color palette design system (Linen `#FDF1E2`, Amethyst `#AB92BF`, Dolphin `#655A7C`), responsive layouts, and dark mode. |
-| **Icons** | [Lucide React](https://lucide.dev/) | `^1.48.0` | Accessible iconography for counter navigation, status indicators, and domain actions. |
-| **Backend Framework** | [FastAPI](https://fastapi.tiangolo.com/) | `^0.110.0` | High-performance Python async backend, REST API routers, Pydantic data validation, and OpenAPI documentation. |
-| **ASGI Server** | [Uvicorn](https://www.uvicorn.org/) | `^0.28.0` | Fast ASGI server running the FastAPI backend on `127.0.0.1:8000`. |
-| **Database & ORM** | [SQLAlchemy](https://www.sqlalchemy.org/) & SQLite | `^2.0.0` | Lightweight, zero-configuration local persistence for sessions, verified directory records, and task history. |
-| **Data Validation** | [Pydantic](https://docs.pydantic.dev/) & Pydantic-Settings | `^2.6.0` | Request/response schema validation and environment configuration parsing. |
-| **Image Processing** | [Pillow (PIL)](https://python-pillow.org/) | `^10.2.0` | Deterministic image decoding, format verification (JPEG/PNG/WebP), size bounds checking, and dimension validation. |
-| **AI Client SDK** | [Google GenAI SDK](https://github.com/google-gemini/generative-ai-python) | `^0.1.1` | Official Google GenAI client for multimodal vision and structured JSON generation. |
-| **HTTP Client** | [HTTPX](https://www.python-httpx.org/) | `^0.27.0` | Async HTTP client for multi-provider API calls (Groq, Cerebras, OpenAI, Ollama). |
-| **QR Code Generation** | [qrcode.react](https://github.com/zpao/qrcode.react) | `^4.2.0` | Offline generation of emergency contact QR codes for first responders. |
-| **Browser APIs** | Web Speech API & MediaDevices | Native | Client-side real-time speech recognition, text-to-speech synthesis, and camera capture. |
+| Frontend | [Next.js](https://nextjs.org/) (App Router) | `16.3.6` | Rendering, routing (33 routes), API proxy handlers |
+| UI | [React](https://react.dev/) | `19.2.8` | Component state and interaction flows |
+| Styling | [Tailwind CSS](https://tailwindcss.com/) | `^4.0` | Accessible palette, responsive layout, dark mode |
+| Icons | [Lucide React](https://lucide.dev/) | `^1.48.0` | Status and navigation iconography |
+| Backend | [FastAPI](https://fastapi.tiangolo.com/) | `^0.110.0` | Async REST API, OpenAPI docs |
+| ASGI server | [Uvicorn](https://www.uvicorn.org/) | `^0.28.0` | Serves the backend on `127.0.0.1:8000` |
+| Database | [SQLAlchemy](https://www.sqlalchemy.org/) + SQLite | `^2.0.0` | Sessions, directory records, tasks |
+| Validation | [Pydantic](https://docs.pydantic.dev/) + Settings | `^2.6.0` | Schemas and env configuration |
+| Images | [Pillow](https://python-pillow.org/) | `^10.2.0` | Format, size, and dimension validation |
+| AI adapter | Custom multi-provider adapter | — | Routes text and vision calls without coupling features to one SDK |
+| Vision (verified) | Groq Vision | configured | Current tested vision configuration |
+| Text AI | Groq (default); Cerebras, OpenAI, Gemini, Ollama supported | configured | Rewrite, translation, rehearsal |
+| Gemini SDK | [Google GenAI SDK](https://github.com/google-gemini/generative-ai-python) | `^0.1.1` | Optional Gemini provider |
+| HTTP client | [HTTPX](https://www.python-httpx.org/) | `^0.27.0` | Async provider calls |
+| QR codes | qrcode.react | `^4.2.0` | Offline emergency-contact QR |
+| Browser APIs | Web Speech API, MediaDevices | native | Speech recognition, TTS, camera |
 
 ---
 
-## Architecture & Project Structure
+## Architecture
 
-### System Architecture & Request Flow
+### Request Flow
 
 ```mermaid
 flowchart TD
     User["Deaf / Hard-of-Hearing User"] -->|Interacts with UI| NextApp["Next.js Frontend (Port 3000)"]
-    
+
     subgraph Frontend["Next.js Application Layer"]
-        NextApp --> TwoWay["Two-Way Room\n(/ai-studio)"]
-        NextApp --> VisionUI["Vision & OCR Suite\n(/ai-studio)"]
-        NextApp --> RecoveryUI["Recovery Journey\n(/ai-studio)"]
-        NextApp --> HubUI["Communication Hub\n(/communication-hub)"]
-        
+        NextApp --> TwoWay["Two-Way Room"]
+        NextApp --> VisionUI["Vision & OCR Suite"]
+        NextApp --> RecoveryUI["Recovery Journey"]
+        NextApp --> HubUI["Communication Hub"]
         TwoWay --> NextAPI["Next.js Route Proxy\n(/api/ai-studio, /api/vision/analyze)"]
         VisionUI --> NextAPI
     end
 
     NextAPI -->|HTTP REST / JSON| FastAPIServer["FastAPI Backend (Port 8000)"]
 
-    subgraph Backend["FastAPI Python Core Services"]
-        FastAPIServer --> AIProvider["Multi-Provider Adapter (ai_provider.py)"]
-        FastAPIServer --> OCRService["OCR & Image Validator (ocr_service.py)"]
-        FastAPIServer --> AmbiguitySvc["Ambiguity Scanner (ambiguity_service.py)"]
-        FastAPIServer --> DirectorySvc["Directory Service (directory_service.py)"]
-        FastAPIServer --> SessionDB[("SQLite Database\n(signmitra.db)")]
-        
-        OCRService --> Pillow["Pillow Image Validator\n(Format, Size, Bounds)"]
-        AIProvider --> Groq["Groq API (Text / Rewrite / Translation)"]
-        AIProvider --> Gemini["Google Gemini (Multimodal Vision / OCR)"]
-        AIProvider --> LocalOllama["Local Ollama (Optional Offline LLM)"]
+    subgraph Backend["FastAPI Core Services"]
+        FastAPIServer --> AIProvider["Multi-Provider Adapter"]
+        FastAPIServer --> OCRService["OCR & Image Validator"]
+        FastAPIServer --> AmbiguitySvc["Ambiguity Scanner"]
+        FastAPIServer --> DirectorySvc["Directory Service"]
+        FastAPIServer --> SessionDB[("SQLite\nsignmitra.db")]
+
+        OCRService --> Pillow["Pillow Validation"]
+        AIProvider --> Groq["Groq (Text + Vision)"]
+        AIProvider --> Gemini["Google Gemini (optional)"]
+        AIProvider --> Others["Cerebras / OpenAI (optional)"]
+        AIProvider --> LocalOllama["Local Ollama (optional)"]
     end
 
-    FastAPIServer -->|Structured JSON Response| NextAPI
-    NextAPI -->|Parsed Result & Provenance Badge| NextApp
-    NextApp -->|Human Review Gate: Edit / Confirm| User
+    FastAPIServer -->|Structured JSON| NextAPI
+    NextAPI -->|Result + Provenance Badge| NextApp
+    NextApp -->|Review Gate: Edit / Confirm| User
+```
+
+### Vision Processing Flow
+
+```text
+User Image
+  → Next.js VisionSuite
+  → Next.js /api/ai-studio proxy
+  → FastAPI /api/ai-studio
+  → Vision / OCR service
+  → Pillow validation + decoding
+  → Centralized AI provider adapter
+  → Configured vision model
+  → Structured JSON result
+  → VisionSuite: human review / confirmation
 ```
 
 ### Directory Tree
 
 ```text
 signmitra/
-├── app/                              # Next.js App Router (Pages, Layouts, API Routes)
-│   ├── ai-studio/                    # Flagship AI Studio interface
-│   │   ├── components/               # Core UI Suites (TwoWayRoom, VisionSuite, LanguageSuite, etc.)
-│   │   └── utils/                    # speech-helpers.js (Web Speech API integration)
-│   ├── api/                          # Server-side Next.js route handlers
+├── app/                              # Next.js App Router
+│   ├── ai-studio/                    # Flagship AI Studio (TwoWayRoom, VisionSuite, LanguageSuite, ...)
+│   │   └── utils/                    # speech-helpers.js (Web Speech API)
+│   ├── api/                          # Next.js route handlers
 │   │   ├── ai-assist/                # Legacy AI assist endpoint
-│   │   ├── ai-studio/                # AI Studio dispatcher & local fallback engine
-│   │   │   └── health/               # Frontend API health ping
-│   │   └── vision/analyze/           # Multimodal vision proxy to FastAPI backend
-│   ├── communication-hub/            # Domain selection & orchestration hub
-│   ├── conversation/                 # Two-way visual communication interface
-│   ├── directory/                    # Verified institutional accessibility directory
-│   ├── emergency-card/               # Full-screen high-contrast emergency card
-│   ├── followups/                    # Follow-up task manager & planner
-│   ├── history/                      # Request audit trail & session logs
-│   ├── journey/[id]/                 # Step-by-step guided counter journeys
-│   ├── phrasebook/                   # Offline curated institutional phrasebook
-│   ├── queue-companion/              # Digital token tracking & visual queue alerts
-│   ├── staff-response/               # Staff visual response selection screen
-│   ├── steps/                        # Guided counter journey steps overview
-│   ├── layout.js                     # Root layout, fonts, and PWA registration
-│   └── page.js                       # SignMitra landing page and feature simulator
-├── backend/                          # FastAPI Python Core Backend
-│   ├── config.py                     # Pydantic settings & provider configuration
-│   ├── database.py                   # SQLAlchemy engine, session maker, and Base
-│   ├── main.py                       # FastAPI application, CORS, routers, and lifecycle
-│   ├── models/                       # SQLAlchemy database models
-│   │   ├── directory.py              # DirectoryRecord model
-│   │   ├── followup.py               # FollowUpTask model
-│   │   ├── history.py                # RequestHistory model
-│   │   └── session.py                # Session model
-│   ├── requirements.txt              # Python package dependencies
-│   ├── routers/                      # Domain API routers
-│   │   ├── communication.py          # Card composition, rewriting, translation
-│   │   ├── directory.py              # Accessibility directory search & feedback
-│   │   ├── health.py                 # Health and status endpoints
-│   │   ├── isl.py                    # ISL catalog and recognition status
-│   │   ├── language.py               # Language detection, simplification, phrasebook
-│   │   ├── recovery.py               # Preparation checklists, ambiguity scanning
-│   │   ├── rehearsal.py              # Practice simulation & rubric evaluation
-│   │   ├── sessions.py               # Session CRUD operations
-│   │   ├── settings.py               # User settings persistence
-│   │   └── vision.py                 # Image OCR analysis endpoint
-│   ├── schemas/                      # Pydantic request/response schemas
-│   ├── services/                     # Business logic and external service adapters
-│   │   ├── ai_provider.py            # Adapters: Gemini, Groq, Cerebras, OpenAI, Ollama
-│   │   ├── ai_service.py             # Provider routing and vision resolution
-│   │   ├── ambiguity_service.py      # Deterministic date and ambiguity detection
-│   │   ├── directory_service.py      # Directory persistence and initial seed data
-│   │   ├── isl_service.py            # ISLRTC catalog and recognition pipeline contract
-│   │   ├── ocr_service.py            # Pillow validation and multimodal OCR
-│   │   ├── rehearsal_service.py      # Counter scenario simulation and rubrics
-│   │   └── translation_service.py    # Indian language translation & offline phrases
-│   └── tests/                        # Pytest automated test suite (12 test modules)
+│   │   ├── ai-studio/                # Dispatcher + local fallback engine (+ health/)
+│   │   └── vision/analyze/           # Vision proxy to FastAPI
+│   ├── communication-hub/            # Domain selection hub
+│   ├── conversation/                 # Two-way visual conversation
+│   ├── directory/                    # Accessibility directory
+│   ├── emergency-card/               # High-contrast emergency card
+│   ├── followups/                    # Follow-up planner
+│   ├── history/                      # Session logs
+│   ├── journey/[id]/                 # Guided counter journeys
+│   ├── phrasebook/                   # Offline phrasebook
+│   ├── queue-companion/              # Token tracking and visual alerts
+│   ├── staff-response/               # Staff visual response screen
+│   ├── steps/                        # Journey steps overview
+│   ├── layout.js                     # Root layout, fonts, PWA registration
+│   └── page.js                       # Landing page
+├── backend/                          # FastAPI backend
+│   ├── config.py · database.py · main.py
+│   ├── models/                       # directory, followup, history, session
+│   ├── routers/                      # communication, directory, health, isl, language,
+│   │                                 # recovery, rehearsal, sessions, settings, vision
+│   ├── schemas/                      # Pydantic schemas
+│   ├── services/                     # ai_provider, ai_service, ambiguity_service,
+│   │                                 # directory_service, isl_service, ocr_service,
+│   │                                 # rehearsal_service, translation_service
+│   ├── tests/                        # Pytest suite (12 modules)
+│   └── requirements.txt
 ├── components/                       # Shared React components (Navbar, api.js, PWARegister)
-├── context/                          # ThemeContext (Linen / Amethyst / Dolphin palette)
-├── public/                           # Static icons, manifest.json, sw.js
-├── server/                           # Optional secondary Express/MongoDB service (Port 5000)
-├── tests/                            # Node.js integration tests & Playwright e2e spec
-├── .env.example                      # Safe environment variable template
-├── DEVELOPMENT_GUIDE.md              # Quick-reference local development guide
-└── README.md                         # Project documentation
+├── context/                          # ThemeContext
+├── public/                           # Icons, manifest.json, sw.js
+├── server/                           # Optional Express/MongoDB service (not needed for core flows)
+├── tests/                            # Node integration tests + Playwright e2e
+├── .env.example
+├── DEVELOPMENT_GUIDE.md
+└── README.md
 ```
 
 ---
 
 ## Prerequisites
 
-Before running SignMitra, ensure the following tools are installed on your workstation:
-
-| Requirement | Supported Version | Purpose |
+| Requirement | Version | Purpose |
 | :--- | :--- | :--- |
-| **Node.js** | `v20.x` or `v22.x` (LTS recommended) | Runs Next.js frontend and test harness. |
-| **npm** | `v10.x` or later | Node package manager. |
-| **Python** | `3.11.x`, `3.12.x`, `3.13.x`, or `3.14.x` | Runs the FastAPI backend. |
-| **AI Provider Key** *(Optional)* | Groq, Google Gemini, Cerebras, or OpenAI | Enables live LLM rewriting, translation, and vision OCR. Offline fallbacks work without keys. |
-| **MongoDB** *(Optional)* | `v6.0+` or `v7.0+` | Only required if running the secondary Express service in `server/`. |
+| Node.js | 20.x or 22.x (LTS) | Frontend and test harness |
+| npm | 10.x+ | Package manager |
+| Python | 3.11 – 3.14 | FastAPI backend |
+| AI provider key *(optional)* | Groq, Gemini, Cerebras, or OpenAI | Live rewriting, translation, vision. Offline fallbacks work without keys. |
+| MongoDB *(optional)* | 6.0+ | Only for the optional Express service in `server/` |
 
 ---
 
@@ -297,181 +311,154 @@ Before running SignMitra, ensure the following tools are installed on your works
 
 ### Windows (PowerShell)
 
-#### 1. Clone the Repository
 ```powershell
+# 1. Clone
 git clone https://github.com/RimshaComix/signmitra.git
 cd signmitra
-```
 
-#### 2. Configure Environment Files
-Copy the safe template to create a local `.env` configuration file in the project root:
-```powershell
+# 2. Environment file (read by both Next.js and FastAPI)
 Copy-Item .env.example .env
-```
-*(Both Next.js and the FastAPI backend automatically read environment configuration from the root `.env` file. You may optionally also run `Copy-Item .env.example backend\.env`. Add your chosen provider API keys to `.env` or leave blank to use the deterministic offline phrasebook).*
 
-#### 3. Install Frontend Dependencies
-```powershell
+# 3. Frontend dependencies
 npm install
-```
 
-#### 4. Set Up Python Virtual Environment & Install Backend Dependencies
-```powershell
-# Create virtual environment inside backend folder
+# 4. Backend virtual environment and dependencies
 python -m venv backend\.venv
-
-# Activate virtual environment
 .\backend\.venv\Scripts\Activate.ps1
-
-# Install backend dependencies
 pip install -r backend\requirements.txt
 ```
 
-#### 5. Start the FastAPI Backend (Terminal 1)
-Run the backend server from the **repository root**:
+**Terminal 1: backend (run from the repository root)**
+
 ```powershell
 .\backend\.venv\Scripts\Activate.ps1
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
-- Backend URL: [http://127.0.0.1:8000](http://127.0.0.1:8000)
-- Interactive API Documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-#### 6. Start the Next.js Frontend (Terminal 2)
-In a **second PowerShell terminal**, navigate to the project directory and start the frontend development server:
+**Terminal 2: frontend (also from the repository root)**
+
 ```powershell
-cd signmitra
 npm run dev
 ```
-- Frontend Application: [http://localhost:3000](http://localhost:3000)
-- Flagship AI Studio: [http://localhost:3000/ai-studio](http://localhost:3000/ai-studio)
-
----
 
 ### macOS / Linux (Bash)
 
 ```bash
-# 1. Clone and enter project
 git clone https://github.com/RimshaComix/signmitra.git
 cd signmitra
-
-# 2. Configure local environment file in repository root
 cp .env.example .env
-
-# 3. Install frontend dependencies
 npm install
 
-# 4. Set up Python virtual environment
 python3 -m venv backend/.venv
 source backend/.venv/bin/activate
 pip install -r backend/requirements.txt
 
-# 5. Start FastAPI Backend (Terminal 1)
+# Terminal 1 (repo root)
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 
-# 6. Start Next.js Frontend (Terminal 2)
-cd signmitra
+# Terminal 2 (repo root)
 npm run dev
 ```
+
+### Local URLs
+
+| Service | URL |
+| :--- | :--- |
+| Frontend | http://localhost:3000 |
+| AI Studio | http://localhost:3000/ai-studio |
+| Backend | http://127.0.0.1:8000 |
+| Swagger UI | http://127.0.0.1:8000/docs |
+| Health check | http://127.0.0.1:8000/api/health |
 
 ---
 
 ## Environment Variables
 
-SignMitra uses server-side environment variables to configure AI providers and service ports. **Never commit `.env` files containing real API credentials.**
+Provider keys are **server-side only**. Never commit `.env` files containing real credentials.
 
-| Variable Name | Purpose | Required / Optional | Default Value | Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | Explicitly chooses active text AI provider (`groq`, `gemini`, `cerebras`, `openai`, `ollama`). | Optional | Auto-detected | If omitted, automatically selects based on available keys. |
-| `AI_MODEL` | Overrides the default model name for the selected provider. | Optional | Provider default | E.g., `llama-3.3-70b-versatile`, `gemini-1.5-flash`. |
-| `GROQ_API_KEY` | Fast LLM inference key for message rewriting, translation, and rehearsal. | Optional | `None` | Obtain free key at [console.groq.com](https://console.groq.com). |
-| `GEMINI_API_KEY` | Google Gemini key for multimodal OCR document analysis and text inference. | Optional | `None` | Obtain free key at [aistudio.google.com](https://aistudio.google.com). |
-| `CEREBRAS_API_KEY` | Cerebras Llama-3.1 inference key. | Optional | `None` | Obtain key at [cloud.cerebras.ai](https://cloud.cerebras.ai). |
-| `OPENAI_API_KEY` | OpenAI API key for GPT-4o-mini inference. | Optional | `None` | Obtain key at [platform.openai.com](https://platform.openai.com). |
-| `OLLAMA_BASE_URL` | Endpoint for local, private Ollama LLM execution. | Optional | `http://localhost:11434` | Allows 100% local, offline inference via [ollama.com](https://ollama.com). |
-| `AI_BACKEND_URL` | Internal URL used by Next.js server routes to reach the FastAPI backend. | Optional | `http://127.0.0.1:8000` | Points to the Python FastAPI process. |
-| `NEXT_PUBLIC_AI_BACKEND_URL` | Public URL for browser-side requests to the Python backend. | Optional | `http://127.0.0.1:8000` | Used in client-side components. |
-| `DATABASE_URL` | SQLAlchemy database connection string for session and directory storage. | Optional | `sqlite:///backend/data/signmitra.db` | Auto-creates SQLite database on first startup. |
-| `REQUEST_TIMEOUT_SECONDS` | Maximum timeout (in seconds) for external AI provider API calls. | Optional | `30` | Prevents hanging requests during high provider latency. |
-| `NEXT_PUBLIC_API_BASE_URL` | Base URL for the optional Express monolith service. | Optional | `http://localhost:5000/api` | Only needed if running the `server/` process. |
-| `MONGODB_URI` | MongoDB connection string for the optional Express monolith. | Optional | `mongodb://127.0.0.1:27017/signmitra` | Used exclusively by `server/src/index.js`. |
+| Variable | Purpose | Default | Notes |
+| :--- | :--- | :--- | :--- |
+| `AI_PROVIDER` | Active text provider: `groq`, `gemini`, `cerebras`, `openai`, `ollama` | auto-detected | Chosen from available keys if omitted |
+| `AI_MODEL` | Override the provider's default model | provider default | e.g., `llama-3.3-70b-versatile` |
+| `GROQ_API_KEY` | Groq key (text and vision) | none | [console.groq.com](https://console.groq.com) |
+| `GEMINI_API_KEY` | Gemini key (optional provider) | none | [aistudio.google.com](https://aistudio.google.com) |
+| `CEREBRAS_API_KEY` | Cerebras key | none | [cloud.cerebras.ai](https://cloud.cerebras.ai) |
+| `OPENAI_API_KEY` | OpenAI key | none | [platform.openai.com](https://platform.openai.com) |
+| `OLLAMA_BASE_URL` | Local Ollama endpoint | `http://localhost:11434` | Fully local inference, [ollama.com](https://ollama.com) |
+| `AI_BACKEND_URL` | Backend URL used by Next.js server routes | `http://127.0.0.1:8000` | |
+| `NEXT_PUBLIC_AI_BACKEND_URL` | Backend URL used by browser code | `http://127.0.0.1:8000` | |
+| `DATABASE_URL` | SQLAlchemy connection string | `sqlite:///backend/data/signmitra.db` | Auto-created on first start |
+| `REQUEST_TIMEOUT_SECONDS` | Timeout for provider calls | `30` | |
+| `NEXT_PUBLIC_API_BASE_URL` | Optional Express service base URL | `http://localhost:5000/api` | Only for `server/` |
+| `MONGODB_URI` | Optional Express MongoDB URI | `mongodb://127.0.0.1:27017/signmitra` | Only for `server/` |
 
 ---
 
 ## Running the Application
 
-For a complete local deployment, **both the frontend and backend processes must remain running concurrently**:
+Both processes must run together:
 
-1. **FastAPI Backend Process (`127.0.0.1:8000`)**:
-   - Manages AI provider delegation, OCR image decoding, SQLite session storage, and directory queries.
-   - Run from repository root: `python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000`.
-2. **Next.js Frontend Process (`localhost:3000`)**:
-   - Serves the user interface, renders client components, handles speech recognition, and proxies requests to the backend.
-   - Run from repository root: `npm run dev`.
-3. **Optional Express Process (`localhost:5000`)**:
-   - An optional secondary Node service in `server/` that supports state-machine session routes with MongoDB. It is not required for the primary Next.js + FastAPI AI Studio workflows.
+1. **FastAPI backend** (`127.0.0.1:8000`): AI provider delegation, OCR, SQLite storage, directory queries.
+2. **Next.js frontend** (`localhost:3000`): UI, speech recognition, and proxying to the backend.
+3. **Express service** (`localhost:5000`, *optional*): a secondary state-machine session service in `server/` backed by MongoDB. Not required for any AI Studio workflow.
 
 ---
 
 ## API Documentation
 
-When the FastAPI backend is running, interactive API documentation is automatically generated by Swagger and ReDoc:
+Interactive docs are served by the running backend at **`/docs`** (Swagger) and **`/redoc`**.
 
-- **Swagger UI**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- **ReDoc UI**: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
-- **Health Check**: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)
-
-### Core Backend Endpoint Summary
-
-| Router Prefix | Method | Endpoint | Description |
+| Prefix | Method | Endpoint | Description |
 | :--- | :--- | :--- | :--- |
-| `/api` | `GET` | `/health` | System health, database connectivity, and active AI provider status. |
-| `/api` | `GET` | `/status` | Detailed service, environment, and ISL recognition pipeline status. |
-| `/api/communication` | `POST` | `/card` | Composes structured communication cards from user intent. |
-| `/api/communication` | `POST` | `/rewrite` | Rewrites user drafts into Polite, Clear, Simpler, or Urgent tones. |
-| `/api/communication` | `POST` | `/translate` | Translates drafts into Indian regional languages with review gates. |
-| `/api/vision` | `POST` | `/analyze` | Validates image via Pillow and performs OCR via configured multimodal provider. |
-| `/api/language` | `POST` | `/translate` | Translates text into regional Indian languages via translation service. |
-| `/api/language` | `POST` | `/simplify` | Rule-based reading level simplification for institutional terminology. |
-| `/api/recovery` | `POST` | `/prepare` | Generates visit preparation checklists, required documents, and cards. |
-| `/api/recovery` | `POST` | `/extract` | Scans staff replies for relative dates (*"tomorrow"*) and ambiguous references. |
-| `/api/recovery` | `POST` | `/summarize` | Summarizes interaction into verified facts and unresolved questions. |
-| `/api/rehearsal` | `POST` | `/scenario` | Generates realistic counter practice scenario with chosen staff persona. |
-| `/api/rehearsal` | `POST` | `/evaluate` | Evaluates simulated counter practice against objective 3-criteria rubric. |
-| `/api/directory` | `GET` | `/` | Searches verified accessibility records with filters (query, city, domain). |
-| `/api/directory` | `POST` | `/` | Creates a new verified accessibility audit record in the database. |
-| `/api/directory` | `GET/PUT/DEL`| `/{record_id}` | Retrieves, updates, or deletes a specific accessibility directory record. |
-| `/api/sessions` | `GET` | `/` | Lists all persistent AI Studio user sessions. |
-| `/api/sessions` | `POST` | `/` | Persists session facts, transcripts, and unresolved questions. |
-| `/api/sessions` | `GET/PUT/DEL`| `/{session_id}` | Retrieves, updates, or deletes a specific session record. |
-| `/api/sessions` | `GET/POST` | `/planner/tasks` | Retrieves or saves follow-up planner tasks. |
-| `/api/settings` | `GET/POST` | `/` | Reads or updates user accessibility preferences and privacy settings. |
-| `/api/isl` | `GET` | `/status` | Reports true status of the ISL ONNX recognition pipeline. |
-| `/api/isl` | `GET` | `/catalog` | Returns the ISLRTC reference sign catalog with descriptions. |
-| `/api/isl` | `POST` | `/recognize` | ISL gesture recognition contract endpoint (reports checkpoint requirement). |
-| `/api` | `POST` | `/ai-studio` | Unified compatibility dispatcher connecting Next.js to FastAPI services. |
+| `/api` | GET | `/health` | Health, database, and active provider status |
+| `/api` | GET | `/status` | Service, environment, and ISL pipeline status |
+| `/api` | POST | `/ai-studio` | Unified dispatcher connecting Next.js to FastAPI services |
+| `/api/communication` | POST | `/card` | Compose a communication card from intent |
+| `/api/communication` | POST | `/rewrite` | Rewrite a draft (Polite, Clear, Simpler, Urgent) |
+| `/api/communication` | POST | `/translate` | Translate a draft with review gate |
+| `/api/vision` | POST | `/analyze` | Pillow validation + vision/OCR analysis |
+| `/api/language` | POST | `/translate` | Translate to regional languages |
+| `/api/language` | POST | `/simplify` | Rule-based simplification |
+| `/api/recovery` | POST | `/prepare` | Visit checklist, required documents, cards |
+| `/api/recovery` | POST | `/extract` | Scan staff replies for ambiguity |
+| `/api/recovery` | POST | `/summarize` | Verified facts vs. unresolved questions |
+| `/api/rehearsal` | POST | `/scenario` | Generate a practice scenario |
+| `/api/rehearsal` | POST | `/evaluate` | Score a practice response on the rubric |
+| `/api/directory` | GET | `/` | Search records (query, city, domain) |
+| `/api/directory` | POST | `/` | Create an audit record |
+| `/api/directory` | GET / PUT / DELETE | `/{record_id}` | Read, update, delete a record |
+| `/api/sessions` | GET / POST | `/` | List or persist sessions |
+| `/api/sessions` | GET / PUT / DELETE | `/{session_id}` | Read, update, delete a session |
+| `/api/sessions` | GET / POST | `/planner/tasks` | Read or save follow-up tasks |
+| `/api/settings` | GET / POST | `/` | Accessibility and privacy preferences |
+| `/api/isl` | GET | `/status` | True status of the ISL recognition pipeline |
+| `/api/isl` | GET | `/catalog` | ISLRTC reference sign catalog |
+| `/api/isl` | POST | `/recognize` | Recognition contract (reports missing checkpoint when no weights) |
 
 ---
 
-## Testing & Quality Verification
+## Testing
 
-SignMitra maintains strict test suites covering unit logic, integration routes, schema boundaries, and offline fallbacks.
+### Backend (Pytest)
 
-### 1. Run Python Backend Pytest Suite
-Activate your virtual environment and execute the verified backend test suite:
-```powershell
-# Windows PowerShell
-.\backend\.venv\Scripts\Activate.ps1
-python -m pytest backend/tests --ignore=backend/tests/test_vision_429.py -v
-```
 ```bash
-# macOS / Linux (Bash)
+# macOS / Linux
 source backend/.venv/bin/activate
 python -m pytest backend/tests --ignore=backend/tests/test_vision_429.py -v
 ```
-*Executes **28 passing unit and integration tests** across 11 test modules (`test_ai_service.py`, `test_ambiguity.py`, `test_communication.py`, `test_directory.py`, `test_health.py`, `test_isl.py`, `test_language.py`, `test_recovery.py`, `test_rehearsal.py`, `test_sessions.py`, `test_vision.py`). Note: `test_vision_429.py` tests an unexported exception symbol (`AIProviderQuotaExhaustedError`) and can be run once that symbol is exported in `ai_provider.py`.*
 
-### 2. Run Node.js Integration Test Suites
-Execute the modular integration test scripts directly using Node.js:
+```powershell
+# Windows
+.\backend\.venv\Scripts\Activate.ps1
+python -m pytest backend/tests --ignore=backend/tests/test_vision_429.py -v
+```
+
+Runs **28 passing tests** across 11 modules: `test_ai_service`, `test_ambiguity`, `test_communication`, `test_directory`, `test_health`, `test_isl`, `test_language`, `test_recovery`, `test_rehearsal`, `test_sessions`, `test_vision`.
+
+> **Known gap:** `test_vision_429.py` (the 12th module) is excluded because it imports an exception symbol, `AIProviderQuotaExhaustedError`, that `ai_provider.py` does not yet export. It can be re-enabled once the symbol is exported.
+
+### Frontend integration tests (Node)
+
 ```bash
 node tests/api-studio.test.mjs
 node tests/language-tools.test.mjs
@@ -481,48 +468,71 @@ node tests/twoway-speech.test.mjs
 node tests/journey-audit.test.mjs
 node tests/phase3-tools.test.mjs
 ```
-*Executes **58+ assertions** across 7 test suites, verifying prompt boundaries, speech capability fallbacks, provenance tracking, and offline phrasebooks. (The vision test scripts `vision-ocr.test.mjs` and `vision-429.test.mjs` test the Next.js API route handler, which is fully verified during `npm run build` and application runtime).*
 
-### 3. Run Next.js Production Build
-```bash
-npm run build
-```
-*Compiles all 33 static and dynamic routes using the Next.js Turbopack compiler.*
+Covers 58+ assertions on prompt boundaries, speech fallbacks, provenance tracking, and the offline phrasebook. The vision route tests (`vision-ocr.test.mjs`, `vision-429.test.mjs`) exercise the Next.js route handler and are validated through `npm run build` and runtime checks.
 
-### 4. Run Playwright End-to-End Suite *(Optional)*
+### Build and end-to-end
+
 ```bash
-npx playwright test tests/e2e/signmitra-journey.spec.js
+npm run build                                          # compiles all 33 routes
+npx playwright test tests/e2e/signmitra-journey.spec.js   # optional e2e
 ```
+
+### Evaluation metrics
+
+> _Not yet published._ Planned: OCR extraction accuracy on a labeled sample of counter documents, ambiguity-scanner precision/recall on staff-reply samples, and end-to-end latency. See [Roadmap](#roadmap).
 
 ---
 
 ## AI, Vision, and Provider Behavior
 
-### Multi-Provider Routing Architecture
-- **Fast Text Inference**: Directed to **Groq** (default `llama-3.3-70b-versatile` with candidate fallback), **Cerebras** (`llama3.1-8b`), or **OpenAI** (`gpt-4o-mini`).
-- **Multimodal Vision OCR**: Powered by **Google Gemini** (`gemini-1.5-flash` / `gemini-3.8-flash`) or **Groq Vision** (`llama-3.2-11b-vision-preview`) via the unified provider adapter layer.
-- **Local Private LLM**: Can be directed to local **Ollama** by setting `AI_PROVIDER=ollama` and `OLLAMA_BASE_URL=http://localhost:11434`.
+### Provider Routing
 
-### Bounded Retries & Quota Exhaustion Handling
-If the Google Gemini Vision API returns an HTTP 429 `RESOURCE_EXHAUSTED` error:
-1. The backend parses `RetryInfo` and quota failure metrics.
-2. If a small, transient rate limit is reported ($\le 2.0\,\text{s}$), the adapter executes at most **one bounded retry**.
-3. If the daily project quota is reached (e.g., free tier 20 requests/day) or the retry delay is long ($> 2.0\,\text{s}$), the system **immediately stops** without hanging in retry loops.
-4. An explicit response is returned:
-   - `extracted_text: ""` (never fabricates artificial text).
-   - `is_interpreted_by_ai: false` and `live_inference_blocked: true`.
-   - `engine: "gemini_vision_quota_exhausted"`.
-   - Clear user advisory banner displayed in the UI while preserving the uploaded image and user-entered notes.
+A centralized adapter keeps features independent of any single AI SDK. The active provider is chosen from configuration and available credentials.
+
+| Provider | Role |
+| :--- | :--- |
+| **Groq** | Current verified provider for text and vision |
+| **Google Gemini** | Supported where configured (text and vision) |
+| **Cerebras** | Supported text provider |
+| **OpenAI** | Supported provider |
+| **Ollama** | Optional local, private inference (`AI_PROVIDER=ollama`) |
+
+Provider changes require no change to the VisionSuite frontend.
+
+### Verified Vision Workflows
+
+Verified against hospital bills, restaurant bills and receipts, notices, queue/token slips, forms, and application documents. Output reflects only what is visible in the uploaded image.
+
+### Provider Failure Handling
+
+When a provider returns a rate-limit or quota error (e.g., HTTP 429 `RESOURCE_EXHAUSTED`):
+
+1. The backend parses retry information.
+2. If the suggested delay is short (≤ 2.0 s), it performs **at most one** bounded retry.
+3. If a daily quota is exhausted or the delay is longer, it stops immediately, with no retry loops.
+4. It returns an explicit failure state:
+   - `extracted_text: ""`, with nothing invented
+   - `is_interpreted_by_ai: false`, `live_inference_blocked: true`
+   - an `engine` value identifying the exhausted provider (e.g., `gemini_vision_quota_exhausted`)
+5. The UI shows an advisory banner and keeps the uploaded image and user notes.
+
+Free-tier quotas can be small (some Gemini tiers allow roughly 20 requests/day), so use a key with adequate quota for demos.
 
 ---
 
 ## Privacy, Safety, and Ethical Boundaries
 
-1. **No Sensitive Personal Attribute Inference**: Vision prompts strictly prohibit identifying individuals, estimating demographic traits, or inferring medical conditions.
-2. **Explicit User Approval Gate**: No AI-generated rewrite, translation, or OCR result is ever sent to a conversation or submitted to counter staff automatically. The user retains full control to edit, approve, or discard.
-3. **Local Storage First**: Session state, follow-up tasks, and preferences are stored locally in the user's browser (`localStorage`) and local SQLite database (`signmitra.db`).
-4. **Honest Engineering Boundaries**: Automated ISL gesture classification is explicitly marked as requiring verified model weights (`isl_classifier.onnx`). The platform refuses to output simulated gesture predictions.
-5. **No Secret Credential Logging**: All API keys and environment variables are strictly loaded on the server and masked from logs, test reports, and client payloads.
+1. **No sensitive attribute inference.** Vision workflows do not identify people, perform facial recognition, estimate demographics, or infer medical or other sensitive attributes.
+2. **Objective descriptions only.** Image descriptions are limited to observable content.
+3. **Explicit approval gate.** No AI output reaches counter staff or the planner without user review.
+4. **No fabricated information.** Missing or unreadable content is marked unavailable.
+5. **Provenance transparency.** AI-generated, deterministic, curated, and user-entered content remain distinguishable.
+6. **Local persistence.** Session state, tasks, and preferences are stored in the browser (`localStorage`) and a local SQLite database (`signmitra.db`).
+7. **Third-party processing disclosure.** When a live AI provider is configured, text and uploaded images are sent to that provider for processing. For fully local processing, use Ollama or the offline-only features. Avoid uploading documents containing sensitive identifiers (Aadhaar numbers, medical records) unless you accept that processing.
+8. **Honest ISL boundary.** Gesture recognition is disabled until verified weights are mounted.
+9. **Credential protection.** Keys are loaded server-side only and masked from logs and client payloads.
+10. **Verify before acting.** OCR, extraction, queue info, and descriptions are assistive, not authoritative. Confirm dates, amounts, token numbers, and instructions against the original.
 
 ---
 
@@ -530,297 +540,55 @@ If the Google Gemini Vision API returns an HTTP 429 `RESOURCE_EXHAUSTED` error:
 
 | Problem | Cause | Solution |
 | :--- | :--- | :--- |
-| **PowerShell script execution disabled** | Windows PowerShell execution policy prevents running `Activate.ps1`. | Run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` in PowerShell, then retry activating the virtual environment. |
-| **Backend fails with `ModuleNotFoundError: No module named 'backend'`** | Uvicorn was launched from inside the `backend/` folder instead of project root. | Ensure your terminal is in the repository root (`signmitra`) before executing `python -m uvicorn backend.main:app`. |
-| **OCR returns "Gemini Vision API quota exceeded (RESOURCE_EXHAUSTED)"** | The Google Gemini free tier daily quota (20 requests/day) has been reached for the key in `.env`. | The system safely preserves your uploaded image and input text. Provide a Gemini API key with available quota or use manual note entry. |
-| **Port 8000 or 3000 already in use** | A previous instance of Uvicorn or Next.js is still running in the background. | In PowerShell, run `Get-Process python, node | Stop-Process -Force` or identify the process using `netstat -ano \| findstr :8000`. |
-| **Microphone / Live Speech Subtitles not working** | Browser speech recognition permission was denied or browser does not support Web Speech API. | Open site settings in your browser address bar (padlock icon), set Microphone to **Allow**, and ensure you are using a Chromium-based browser (Chrome, Edge) supporting Web Speech API. |
-| **Frontend displays "Provider Unconfigured" badge** | Neither `GROQ_API_KEY` nor `GEMINI_API_KEY` was supplied in `.env`. | Add an API key to `.env` for live AI generation, or use the built-in deterministic offline phrasebook which functions without keys. |
+| PowerShell blocks `Activate.ps1` | Execution policy | `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`, then retry |
+| `ModuleNotFoundError: No module named 'backend'` | Uvicorn launched inside `backend/` | Run from the repository root |
+| Vision returns a quota-exceeded error | Provider daily quota reached | Image and notes are preserved; use a key with available quota or enter notes manually |
+| Port 8000 or 3000 in use | Stale process | PowerShell: `Get-Process python, node \| Stop-Process -Force`, or find it with `netstat -ano \| findstr :8000` |
+| Live speech subtitles not working | Mic permission denied or unsupported browser | Allow the microphone in site settings and use a Chromium-based browser (Chrome, Edge) |
+| "Provider Unconfigured" badge | No API key in `.env` | Add a provider key, or continue with offline features |
+
+---
+
+## Roadmap
+
+- [ ] **User validation with the Deaf community.** Usability testing with ISL users, educators, and organizations, and iteration on text-light interaction design.
+- [ ] **Evaluation metrics.** Published OCR accuracy, ambiguity-scanner precision/recall, and latency results.
+- [ ] **ISL recognition.** Train and mount spatial-temporal (GCN/BiLSTM) weights at `backend/model_weights/isl_classifier.onnx` against ISLRTC-based data.
+- [ ] **Expanded directory.** Audit records across tier-2 and tier-3 cities (district collectorates, passport offices, transport stations).
+- [ ] **Offline PWA caching.** Complete service-worker precaching (`sw.js`) for zero-network phrasebook use on mobile.
+- [ ] **Staff-facing audio feedback.** Chime notifications when an ISL user confirms a card.
+- [ ] **Test cleanup.** Export `AIProviderQuotaExhaustedError` and re-enable `test_vision_429.py`.
+
+*Vision & OCR (Queue & Token Reader, Text Reader, Notice & Documents, Image Description) is implemented and verified, so it is not a roadmap item.*
 
 ---
 
 ## Contributing
 
-Contributions to SignMitra are welcome! To contribute:
-
-1. **Fork the Repository** on GitHub.
-2. **Create a Feature Branch**:
-   ```bash
-   git checkout -b feature/accessible-feature-name
-   ```
-3. **Make Targeted Changes**:
-   - Ensure the accessible 3-color palette (Linen `#FDF1E2`, Amethyst `#AB92BF`, Dolphin `#655A7C`) and high contrast are preserved.
+1. Fork the repository.
+2. Create a branch: `git checkout -b feature/your-feature-name`
+3. Keep changes targeted:
+   - Preserve the accessible palette and high contrast.
    - Do not remove fallback mechanisms or provenance badges.
-4. **Run Quality Checks**:
+4. Run checks:
    ```bash
-   # Run backend tests
-   python -m pytest backend/tests -v
-   # Run frontend build
+   python -m pytest backend/tests --ignore=backend/tests/test_vision_429.py -v
    npm run build
    ```
-5. **Commit and Open a Pull Request**: Submit a clean pull request with a clear description of the problem solved and test evidence.
+5. Open a pull request describing the problem solved, with test evidence.
 
 ---
 
 ## License
 
-*No license file is currently specified in the repository.* All rights are reserved by the original repository authors unless an open-source license is explicitly added.
+No license file is currently included. All rights are reserved by the authors unless an open-source license is added. Add a `LICENSE` file (e.g., MIT or Apache-2.0) to allow reuse.
 
 ---
 
 ## Acknowledgements
 
-- **[ISLRTC (Indian Sign Language Research and Training Centre)](https://www.islrtc.nic.in/)**: For standardizing the national ISL dictionary and defining standard functional signs referenced in SignMitra's catalog.
-- **[Next.js](https://nextjs.org/) & [Vercel](https://vercel.com/)**: For the React application framework and Turbopack compiler.
-- **[FastAPI](https://fastapi.tiangolo.com/)**: For the asynchronous Python backend architecture.
-- **[Groq](https://groq.com/) & [Google Gemini](https://ai.google.dev/)**: For high-speed open-weights inference and multimodal vision capabilities.
-- **[Lucide Icons](https://lucide.dev/)**: For accessible, clean interface iconography.
-
----
-
-## Roadmap
-
-The following engineering goals are documented in the repository architecture for future development:
-
-- [ ] **ISL ONNX Weight Integration**: Train and mount spatial-temporal GCN/BiLSTM weights (`backend/model_weights/isl_classifier.onnx`) against the ISLRTC 10,000-word dataset for live gesture recognition.
-- [ ] **Expanded Directory Records**: Broaden verified accessibility audit records across tier-2 and tier-3 Indian cities for district collectorates, passport offices, and transport stations.
-- [ ] **Offline PWA Service Worker Asset Caching**: Complete service worker (`sw.js`) precaching for zero-network phrasebook navigation on mobile devices.
-- [ ] **Audio Feedback for Counter Staff**: Expand staff-facing audio chime notifications when an ISL user confirms a communication card.
-
-## 2. Multimodal Vision & Document OCR
-
-*Route: `/ai-studio` (Tab: Vision & OCR)*
-
-SignMitra provides a multimodal visual analysis workflow for uploaded images and documents. The Vision & OCR suite is implemented as four related workflows:
-
-* **Queue & Token Reader**
-* **Text Reader (OCR)**
-* **Notice & Documents**
-* **Image Description**
-
-### Supported visual workflows
-
-* **Upload & Camera Capture**: Supports drag-and-drop file uploads, local image browsing, and live webcam snapshots.
-* **Deterministic Pillow Validation**: Pillow validates the uploaded image before AI inference, including supported image formats (PNG, JPEG, WebP), file size limits ($\le 5,\text{MB}$), image readability, and minimum dimensions.
-* **Live Multimodal Vision**: The configured AI provider analyzes the actual uploaded image rather than relying on hardcoded document templates.
-* **Queue & Token Extraction**: Extracts visible token numbers, counter information, department information, dates, times, and queue-related instructions when supported by the image.
-* **General OCR**: Extracts visible printed text and presents it in an editable verification area.
-* **Document Understanding**: Identifies document types and extracts relevant structured information such as document numbers, order numbers, dates, times, items/services, quantities, amounts, totals, payment details, instructions, and other visible fields.
-* **Privacy-Safe Image Description**: Provides an objective visual description when meaningful visual content is available. The system does not perform facial recognition or infer sensitive personal attributes.
-* **Generic Document Handling**: The vision pipeline is not restricted to hospital documents. It can process receipts, restaurant bills, hospital bills, notices, tickets, forms, application documents, and other supported visual documents according to the information actually visible in the image.
-* **Review Before Use**: Extracted information remains subject to user review and confirmation before it is used for communication or follow-up actions.
-* **No Fabricated Extraction**: When information is not visible, unreadable, or unavailable, the system does not invent values.
-
-### Current verified provider
-
-The current tested SignMitra configuration uses **Groq Vision** through the centralized AI provider adapter.
-
-The provider layer is designed so that vision inference can be routed through supported providers without requiring changes to the VisionSuite frontend workflow.
-
----
-
-## Technology Stack
-
-| Layer                   | Technology                                                 | Version             | Purpose in SignMitra                                                                                                                  |
-| :---------------------- | :--------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------ |
-| **Frontend Framework**  | [Next.js](https://nextjs.org/) (App Router)                | `16.3.6`            | Client/server rendering, static page generation (33 routes), client-side routing, and API proxy handlers.                             |
-| **UI Library**          | [React](https://react.dev/)                                | `19.2.8`            | Component state management, interaction flows, and reactive UI updates.                                                               |
-| **Styling**             | [Tailwind CSS](https://tailwindcss.com/)                   | `^4.0`              | Accessible 3-color palette design system (Linen `#FDF1E2`, Amethyst `#AB92BF`, Dolphin `#655A7C`), responsive layouts, and dark mode. |
-| **Icons**               | [Lucide React](https://lucide.dev/)                        | `^1.48.0`           | Accessible iconography for counter navigation, status indicators, and domain actions.                                                 |
-| **Backend Framework**   | [FastAPI](https://fastapi.tiangolo.com/)                   | `^0.110.0`          | High-performance Python async backend, REST API routers, Pydantic data validation, and OpenAPI documentation.                         |
-| **ASGI Server**         | [Uvicorn](https://www.uvicorn.org/)                        | `^0.28.0`           | Fast ASGI server running the FastAPI backend on `127.0.0.1:8000`.                                                                     |
-| **Database & ORM**      | [SQLAlchemy](https://www.sqlalchemy.org/) & SQLite         | `^2.0.0`            | Lightweight, zero-configuration local persistence for sessions, verified directory records, and task history.                         |
-| **Data Validation**     | [Pydantic](https://docs.pydantic.dev/) & Pydantic-Settings | `^2.6.0`            | Request/response schema validation and environment configuration parsing.                                                             |
-| **Image Processing**    | [Pillow (PIL)](https://python-pillow.org/)                 | `^10.2.0`           | Deterministic image decoding, format verification (JPEG/PNG/WebP), size bounds checking, and dimension validation.                    |
-| **AI Provider Adapter** | Custom multi-provider adapter                              | —                   | Centralized routing for text and multimodal AI providers without coupling application features to a single provider SDK.              |
-| **Vision Inference**    | Groq Vision                                                | Configured provider | Live multimodal image/document understanding in the currently verified configuration.                                                 |
-| **Text AI**             | Groq and supported provider adapters                       | Configured provider | Rewriting, translation, reasoning, rehearsal, and other AI-assisted workflows.                                                        |
-| **HTTP Client**         | [HTTPX](https://www.python-httpx.org/)                     | `^0.27.0`           | Async HTTP client for multi-provider API calls (Groq, Cerebras, OpenAI, Ollama).                                                      |
-| **QR Code Generation**  | qrcode.react                                               | `^4.2.0`            | Offline generation of emergency contact QR codes for first responders.                                                                |
-| **Browser APIs**        | Web Speech API & MediaDevices                              | Native              | Client-side real-time speech recognition, text-to-speech synthesis, and camera capture.                                               |
-
----
-
-## AI, Vision, and Provider Behavior
-
-### Multi-Provider Routing Architecture
-
-SignMitra uses a centralized provider adapter so application features do not directly depend on a single AI SDK.
-
-The architecture supports configured AI providers for different workloads, including:
-
-* **Groq** — current verified provider for text inference and multimodal Vision workflows.
-* **Google Gemini** — supported provider option where configured.
-* **Cerebras** — supported text inference provider option.
-* **OpenAI** — supported provider option.
-* **Ollama** — optional local/private inference provider.
-
-The active provider is determined by application configuration and available credentials.
-
-### Vision Processing Flow
-
-The Vision & OCR workflow follows this path:
-
-```text
-User Image
-    ↓
-Next.js VisionSuite
-    ↓
-Next.js /api/ai-studio proxy
-    ↓
-FastAPI /api/ai-studio
-    ↓
-Vision / OCR Service
-    ↓
-Pillow validation + image decoding
-    ↓
-Centralized AI Provider Adapter
-    ↓
-Configured Vision Model
-    ↓
-Structured JSON result
-    ↓
-Next.js VisionSuite
-    ↓
-Human Review / Confirmation
-```
-
-### Verified Vision Workflows
-
-The current Vision & OCR implementation has been verified across:
-
-1. **Queue & Token Reader**
-
-   * Token numbers
-   * Counter information
-   * Department information
-   * Dates and times
-   * Queue-related instructions
-
-2. **Text Reader (OCR)**
-
-   * Visible printed text
-   * Editable extracted text
-   * Copyable OCR output
-
-3. **Notice & Documents**
-
-   * Document type
-   * Document/order numbers
-   * Dates and times
-   * Amounts
-   * Items/services
-   * Quantities
-   * Payment details when visible
-   * Instructions
-   * Other relevant visible fields
-
-4. **Image Description**
-
-   * Privacy-safe objective visual description
-   * No facial recognition
-   * No sensitive personal attribute inference
-   * No fabricated description when meaningful visual information is unavailable
-
-### Generic Visual Document Handling
-
-The Vision & OCR pipeline is designed for general visual documents rather than a single document category.
-
-Verified testing includes visual documents such as:
-
-* Hospital bills
-* Restaurant bills and receipts
-* Notices
-* Queue/token slips
-* Forms
-* Application documents
-* Other printed documents containing extractable visual information
-
-The structured output is based on information actually visible in the uploaded image.
-
-### Provider Failure and Quota Handling
-
-External AI providers can impose rate limits, quota limits, or temporary failures.
-
-When live inference is unavailable:
-
-* The system does not fabricate OCR or vision output.
-* The uploaded image can remain available for user review.
-* The UI exposes the unavailable/failure state instead of presenting generated information as factual.
-* Deterministic and offline workflows remain available where supported.
-* Provider errors are surfaced through the application's provenance and status handling.
-
----
-
-## Privacy, Safety, and Ethical Boundaries
-
-1. **No Sensitive Personal Attribute Inference**: Vision workflows do not intentionally identify people, perform facial recognition, estimate demographic traits, or infer sensitive personal attributes.
-
-2. **Objective Image Description**: Image descriptions are limited to observable visual information. The system should not infer identity, protected characteristics, or sensitive personal information from appearance.
-
-3. **Explicit User Approval Gate**: AI-generated rewrites, translations, OCR results, document extraction, and other AI-assisted outputs are subject to user review before being used in communication or follow-up actions.
-
-4. **No Fabricated Information**: Vision extraction is instructed to use only information supported by the uploaded image. Missing, unreadable, or unavailable information is represented as unavailable rather than guessed.
-
-5. **Provenance Transparency**: AI-generated information is labeled as AI-generated, while deterministic validation, curated phrasebook content, and user-entered information remain distinguishable.
-
-6. **Local Storage First**: Session state, follow-up tasks, and preferences use the application's configured local persistence mechanisms.
-
-7. **Honest ISL Recognition Boundary**: Automated ISL gesture recognition remains explicitly dependent on verified model weights. The application does not fabricate recognition results when those weights are unavailable.
-
-8. **Credential Protection**: Provider credentials are server-side configuration values and should never be committed to source control or exposed to the browser.
-
-9. **Human Verification for Visual Information**: OCR, document extraction, queue information, and image descriptions are assistive outputs rather than authoritative records. Users should verify important dates, amounts, token numbers, instructions, and other consequential information against the original visual source before acting on them.
-
----
-
-## Screenshots & Demo
-
-The Vision & OCR interface currently includes four verified workflows:
-
-```text
-1. Queue & Token Reader
-   → Token / counter / queue-related extraction
-
-2. Text Reader (OCR)
-   → Editable extracted text + copy workflow
-
-3. Notice & Documents
-   → Structured document type, fields, items, dates and amounts
-
-4. Image Description
-   → Privacy-safe objective visual description
-```
-
-Recommended screenshots for project documentation:
-
-* Two-Way Room with draft rewriting and human review
-* Queue/token slip extraction
-* OCR extracted text with editable verification
-* Hospital/restaurant/receipt/document structured extraction
-* Privacy-safe image description
-* Human review-before-use state
-* Verified accessibility directory records
-* Ambiguity scanner with detected relative dates such as *"tomorrow morning"*
-
-Store verified screenshot assets in `public/screenshots/` and link them here when available.
-
----
-
-## Roadmap
-
-The following engineering goals remain future work:
-
-* [ ] **ISL ONNX Weight Integration**: Train and mount spatial-temporal GCN/BiLSTM weights (`backend/model_weights/isl_classifier.onnx`) against the ISLRTC 10,000-word dataset for live gesture recognition.
-* [ ] **Expanded Directory Records**: Broaden verified accessibility audit records across tier-2 and tier-3 Indian cities for district collectorates, passport offices, and transport stations.
-* [ ] **Offline PWA Service Worker Asset Caching**: Complete service worker (`sw.js`) precaching for zero-network phrasebook navigation on mobile devices.
-* [ ] **Audio Feedback for Counter Staff**: Expand staff-facing audio chime notifications when an ISL user confirms a communication card.
-
-The **Vision & OCR suite is not listed as a roadmap item because its four workflows are already implemented and verified**:
-
-* Queue & Token Reader
-* Text Reader (OCR)
-* Notice & Documents
-* Image Description
-
-The current verified Vision configuration uses **Groq Vision** through the centralized AI provider adapter. Future provider changes or additional multimodal providers can be integrated through the provider layer without requiring a redesign of the VisionSuite workflow.
+- **[ISLRTC](https://www.islrtc.nic.in/)**: for standardizing the Indian Sign Language dictionary referenced in the sign catalog.
+- **[Next.js](https://nextjs.org/) and [Vercel](https://vercel.com/)**: React framework and Turbopack compiler.
+- **[FastAPI](https://fastapi.tiangolo.com/)**: async Python backend framework.
+- **[Groq](https://groq.com/) and [Google Gemini](https://ai.google.dev/)**: fast inference and multimodal vision.
+- **[Lucide](https://lucide.dev/)**: icon set.

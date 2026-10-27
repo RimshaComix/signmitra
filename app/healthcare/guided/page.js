@@ -28,7 +28,9 @@ import {
   Clock,
   ChevronRight,
   CheckSquare,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  RotateCcw
 } from 'lucide-react';
 
 /*
@@ -414,6 +416,20 @@ function GuidedBody() {
   const startRef = useRef(null);
   const autoStartedRef = useRef(false);
 
+  /* ------------------- two-way conversation engine state ------------------- */
+  const [activeWorkflow, setActiveWorkflow] = useState(intentParam || 'appointment_request');
+  const [showWorkflowSelector, setShowWorkflowSelector] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]); // [{id, role:'patient'|'staff', text, timestamp, origin:'preset'|'ai'|'manual', intent, edited:bool}]
+  const [chatMode, setChatMode] = useState('patient'); // 'patient' | 'staff'
+  const [chatInput, setChatInput] = useState('');
+  const [aiDraft, setAiDraft] = useState(null); // {text, followUpQuestion, provider, isEdited:bool} | null
+  const [isFetchingAi, setIsFetchingAi] = useState(false);
+  const [aiDraftError, setAiDraftError] = useState('');
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
+  const chatEndRef = useRef(null);
+  const chatTextareaRef = useRef(null);
+  const pendingAiRef = useRef(0);
+
   /* ------------------------------ derived ---------------------------------- */
 
   const flow = intent ? FLOWS[intent] : null;
@@ -467,6 +483,12 @@ function GuidedBody() {
   }, []);
 
   useEffect(() => {
+    if (intentParam && ['appointment_request', 'reschedule_cancel_appointment', 'medical_reports_request', 'diagnostic_test_request', 'communication_assist_request', 'explain_symptoms', 'medicine_query', 'custom_request'].includes(intentParam)) {
+      setActiveWorkflow(intentParam);
+    }
+  }, [intentParam]);
+
+    useEffect(() => {
     if (autoStartedRef.current) return;
     if (intentParam && FLOWS[intentParam]) {
       autoStartedRef.current = true;
@@ -551,10 +573,19 @@ function GuidedBody() {
     sessionIdRef.current = null;
     sessionPromiseRef.current = null;
     reopenOfRef.current = null;
+    // conversation reset
+    setChatMessages([]);
+    setChatMode('patient');
+    setChatInput('');
+    setAiDraft(null);
+    setAiDraftError('');
+    setShowWorkflowSelector(false);
+    pendingAiRef.current++;
   };
 
   const startFlow = (key, preset = {}, prefill = null) => {
     setIntent(key);
+    setActiveWorkflow(key);
     startRef.current = Date.now();
     createServerSession(key);
     const merged = { ...preset, ...(prefill || {}) };
@@ -711,7 +742,869 @@ function GuidedBody() {
     }
     setIsPolishing(false);
   };
+  /* -------------------------------------------------------------------------- */
+  /* STRUCTURED HEALTHCARE PHRASE LIBRARY & CONTEXTUAL ENGINE                   */
+  /* -------------------------------------------------------------------------- */
 
+  const WORKFLOW_METADATA = {
+    appointment_request: {
+      title: 'Book New Appointment',
+      badge: 'Appointments',
+      hint: 'Book a doctor consultation or specialist visit'
+    },
+    reschedule_cancel_appointment: {
+      title: 'Change or Cancel Appointment',
+      badge: 'Appointments',
+      hint: 'Reschedule an existing booking date or cancel'
+    },
+    medical_reports_request: {
+      title: 'Medical Reports & Records',
+      badge: 'Records Desk',
+      hint: 'Collect physical test reports and doctor summaries'
+    },
+    diagnostic_test_request: {
+      title: 'Diagnostic Tests & Lab Scans',
+      badge: 'Pathology & Scans',
+      hint: 'Blood tests, scans, X-rays, ECG and fasting instructions'
+    },
+    communication_assist_request: {
+      title: 'Communication Accommodation',
+      badge: 'Accessibility',
+      hint: 'Request written communication or ISL interpreter'
+    },
+    explain_symptoms: {
+      title: 'Explain Symptoms & Pain Triage',
+      badge: 'Triage / Emergency',
+      hint: 'Describe pain and notify the triage nurse'
+    },
+    medicine_query: {
+      title: 'Prescription Refill & Pharmacy',
+      badge: 'Hospital Pharmacy',
+      hint: 'Refill prescription, check stock, and get dosage instructions'
+    },
+    custom_request: {
+      title: 'General Hospital Inquiry',
+      badge: 'Hospital Counter',
+      hint: 'General assistance, directions, and counter queries'
+    }
+  };
+
+  /* Comprehensive phrase library by Workflow, Speaker Role, and Context */
+  const PHRASE_DATABASE = {
+    appointment_request: {
+      patient: [
+        'I would like to book a new doctor appointment.',
+        'Which doctors or specialists are available today?',
+        'What appointment dates and times are available this week?',
+        'What documents or hospital ID cards should I bring?',
+        'How much is the doctor consultation fee?'
+      ],
+      staff: [
+        'Please show me your patient registration card or ID.',
+        "Let me check the doctor's schedule for today. One moment please.",
+        'We have an open slot today at 11:30 AM. Does that work for you?',
+        'Please fill out this registration slip at Counter 1 first.',
+        'Your appointment is confirmed. Please report 15 minutes before time.'
+      ]
+    },
+    reschedule_cancel_appointment: {
+      patient: [
+        'I need to reschedule my existing appointment.',
+        'I need to cancel my scheduled appointment.',
+        'Can I change my appointment date to tomorrow or next week?',
+        'Please check my appointment booking with my phone number.',
+        'Is there any fee or penalty for changing my appointment?'
+      ],
+      staff: [
+        'Please show me your appointment booking slip or SMS confirmation.',
+        'I have cancelled your appointment. You will receive an SMS confirmation.',
+        'We have openings tomorrow at 10:00 AM or 3:00 PM.',
+        'There are no extra fees for rescheduling your appointment.',
+        'Your new appointment has been rescheduled. Here is your updated slip.'
+      ]
+    },
+    medical_reports_request: {
+      patient: [
+        'I am here to collect my medical reports and test results.',
+        "Is my doctor's discharge summary or lab report ready?",
+        'Which counter should I visit to collect my printed report?',
+        'I need a stamped and signed physical copy of my records.',
+        'Do I need to show my bill receipt or identification?'
+      ],
+      staff: [
+        'Your report is ready. Please collect it from Counter 3.',
+        'Please show me your test bill receipt and ID card.',
+        'The report is still being verified by the doctor. Please wait 20 minutes.',
+        'Please visit the Medical Records Department on the 1st Floor (Room 104).',
+        'Here is your stamped report file. Please sign our collection register.'
+      ]
+    },
+    diagnostic_test_request: {
+      patient: [
+        'I need to get a blood test or diagnostic lab test done.',
+        'Where is the pathology lab or scan center located?',
+        'Do I need to be fasting for this test?',
+        'How much is the test fee, and when will the report be ready?',
+        'Can I receive the report via SMS or WhatsApp?'
+      ],
+      staff: [
+        'The pathology lab is in Room 12 on the Ground Floor.',
+        'This test requires 8 to 10 hours of fasting. Are you fasting?',
+        'Please pay the test fee of ₹250 at Billing Counter 2 first.',
+        'Your test results will be ready today by 4:00 PM.',
+        'Please take your test token number and have a seat outside Room 12.'
+      ]
+    },
+    communication_assist_request: {
+      patient: [
+        'Hello. I am Deaf or hard of hearing. Please communicate in writing.',
+        'I need an Indian Sign Language (ISL) interpreter if available.',
+        'Please write down all instructions, numbers, and dates on this screen or paper.',
+        'Please explain one step at a time in simple words.',
+        'Please show me where to go next.'
+      ],
+      staff: [
+        'I understand. I will write down all instructions clearly for you.',
+        'We do not have an in-person ISL interpreter right now, but I will help in writing.',
+        'Please take your time. Let me write the exact steps on paper.',
+        'Please keep this screen open at every counter you visit today.',
+        'I am here to help. Feel free to tap any question on this screen.'
+      ]
+    },
+    explain_symptoms: {
+      patient: [
+        'I have severe pain and need to see a doctor or triage nurse.',
+        'I have had a high fever and headache since yesterday.',
+        'I feel dizzy, breathless, or unwell right now.',
+        'I need urgent medical attention. Please notify emergency staff.',
+        'The pain is getting worse. Please call the doctor quickly.'
+      ],
+      staff: [
+        'Please wait right here. I am calling the triage nurse immediately.',
+        'Please sit down in this wheelchair. I will take you to Emergency (Room 4).',
+        'The on-duty doctor will examine you in Room 5 in a few moments.',
+        'Are you experiencing chest pain, difficulty breathing, or severe bleeding?',
+        'Do you have any known drug allergies or medical history with us?'
+      ]
+    },
+    medicine_query: {
+      patient: [
+        "I need to get my doctor's prescription filled at the pharmacy.",
+        'Where is the hospital pharmacy counter located?',
+        'Is this prescribed medicine currently in stock?',
+        'Please write down how and when I should take each medicine.',
+        'Can I pay for the medicines using UPI or card at the counter?'
+      ],
+      staff: [
+        'The pharmacy is at Counter 4, just past the entrance on the right.',
+        "Please show me your doctor's stamped prescription slip.",
+        'All medicines in this prescription are in stock. Total amount is ₹340.',
+        'Take this tablet once in the morning after breakfast, and one at bedtime.',
+        'This medicine is not in stock here; you can get it at the pharmacy outside.'
+      ]
+    },
+    custom_request: {
+      patient: [
+        'Hello, I need general assistance at the hospital counter.',
+        'Where can I find the hospital inquiry desk or reception?',
+        'Which counter handles billing and patient registration?',
+        'Please write down all directions and counter numbers.',
+        'Thank you very much for your help.'
+      ],
+      staff: [
+        'I understand your request. Please wait while I check.',
+        'I will write down the exact room number and directions for you.',
+        'Please take a token number and have a seat in the waiting area.',
+        'Please go to Counter 2 on the 1st Floor for this service.',
+        'Is there anything else I can assist you with today?'
+      ]
+    }
+  };
+
+  /* Keyword-driven contextual follow-up phrases */
+  const getContextualPhrases = (role, workflow, lastMessageText) => {
+    const text = (lastMessageText || '').toLowerCase();
+    const wf = PHRASE_DATABASE[workflow] || PHRASE_DATABASE.custom_request;
+    const basePhrases = wf[role] || [];
+
+    if (role === 'patient') {
+      // Patient replying to Staff
+      if (text.includes('counter') || text.includes('room') || text.includes('floor') || text.includes('desk') || text.includes('cabin') || text.includes('wing')) {
+        return [
+          'Which floor or department is that counter located on?',
+          'Could you please write down the room or counter number?',
+          'Thank you. I will proceed to that counter now.',
+          'Do I need to collect a token number before going there?',
+          'Could you please show me the directions on a map or paper?'
+        ];
+      }
+      if (text.includes('wait') || text.includes('minute') || text.includes('hour') || text.includes('schedule') || text.includes('delay') || text.includes('lobby') || text.includes('seat')) {
+        return [
+          'Thank you. Approximately how long will the wait be?',
+          'I will wait in the seating area. Please wave when my turn comes.',
+          'Is there a number token I need to keep ready?',
+          'Is there an earlier time slot, or should I return tomorrow?',
+          'Thank you. Where is the nearest waiting area?'
+        ];
+      }
+      if (text.includes('fee') || text.includes('₹') || text.includes('cost') || text.includes('pay') || text.includes('rupee') || text.includes('bill') || text.includes('price')) {
+        return [
+          'Can I pay the fee using UPI (GPay/PhonePe) or debit card?',
+          'Where is the billing desk located to make the payment?',
+          'Please provide a printed payment receipt with the hospital stamp.',
+          'Are there any concessions or insurance coverage applicable?',
+          'Thank you. Here is the payment.'
+        ];
+      }
+      if (text.includes('slip') || text.includes('id') || text.includes('card') || text.includes('receipt') || text.includes('document') || text.includes('prescript')) {
+        return [
+          'Here is my hospital registration card and ID.',
+          "Here is my doctor's stamped prescription slip.",
+          'Which other documents or receipts do I need to present?',
+          'I have my previous medical file here in my bag.',
+          'Thank you. Please check these documents.'
+        ];
+      }
+      if (text.includes('emergency') || text.includes('triage') || text.includes('nurse') || text.includes('doctor') || text.includes('wheelchair')) {
+        return [
+          'The pain is quite severe. Please call the triage nurse.',
+          'I am sitting right here. Please notify me when the doctor arrives.',
+          'I have had these symptoms since yesterday. Thank you for checking.',
+          'Please inform the examining doctor that I communicate in writing.',
+          'Thank you for your quick help.'
+        ];
+      }
+      if (text.includes('report') || text.includes('lab') || text.includes('test') || text.includes('blood') || text.includes('scan') || text.includes('ready')) {
+        return [
+          'Here is my lab test receipt. Please check my file.',
+          'Can I get a stamped physical copy for my doctor consultation?',
+          'Will the report also be available online or via SMS?',
+          'Do I need to show this report to my doctor today?',
+          'Thank you. I will collect it now.'
+        ];
+      }
+      // Default patient follow-ups
+      return [
+        'Could you please explain that in simpler words?',
+        'Please write down the exact room number, time, and instructions.',
+        'Which counter should I go to next?',
+        'Thank you very much. I understand.',
+        ...basePhrases.slice(0, 2)
+      ];
+    } else {
+      // Staff replying to Patient
+      if (text.includes('appointment') || text.includes('book') || text.includes('reschedule') || text.includes('cancel')) {
+        return [
+          'Please show me your patient registration card or ID.',
+          "Let me check the doctor's schedule for today. One moment please.",
+          'We have an open slot today at 11:30 AM. Does that work for you?',
+          'Please fill out this registration slip at Counter 1 first.',
+          'Your appointment is confirmed. Please report 15 minutes early.'
+        ];
+      }
+      if (text.includes('report') || text.includes('result') || text.includes('record') || text.includes('summary')) {
+        return [
+          'Your report is ready. Please collect it from Counter 3.',
+          'Please show me your test bill receipt and ID card.',
+          'The report is still being verified by the doctor. Please wait 20 minutes.',
+          'Please visit the Medical Records Department on the 1st Floor (Room 104).',
+          'Here is your stamped report file. Please sign our collection register.'
+        ];
+      }
+      if (text.includes('test') || text.includes('blood') || text.includes('scan') || text.includes('x-ray') || text.includes('ecg') || text.includes('fasting')) {
+        return [
+          'The pathology lab is in Room 12 on the Ground Floor.',
+          'This test requires 8 to 10 hours of fasting. Are you fasting?',
+          'Please pay the test fee of ₹250 at Billing Counter 2 first.',
+          'Your test results will be ready today by 4:00 PM.',
+          'Please take your test token number and have a seat outside Room 12.'
+        ];
+      }
+      if (text.includes('medicine') || text.includes('pharmacy') || text.includes('tablet') || text.includes('dose') || text.includes('refill')) {
+        return [
+          'The pharmacy is at Counter 4, just past the entrance on the right.',
+          "Please show me your doctor's stamped prescription slip.",
+          'All medicines in this prescription are in stock. Total amount is ₹340.',
+          'Take this tablet once in the morning after breakfast, and one at bedtime.',
+          'This medicine is not in stock here; you can get it at the pharmacy outside.'
+        ];
+      }
+      if (text.includes('pain') || text.includes('hurt') || text.includes('symptom') || text.includes('fever') || text.includes('dizzy') || text.includes('emergency')) {
+        return [
+          'Please wait right here. I am calling the triage nurse immediately.',
+          'Please sit down in this wheelchair. I will take you to Emergency (Room 4).',
+          'The on-duty doctor will examine you in Room 5 in a few moments.',
+          'Are you experiencing chest pain, difficulty breathing, or severe bleeding?',
+          'Do you have any existing allergies or medicines you are taking?'
+        ];
+      }
+      if (text.includes('where') || text.includes('counter') || text.includes('room') || text.includes('floor') || text.includes('direction')) {
+        return [
+          'Please go to Counter 3 on the 1st Floor (take the elevator on the left).',
+          "The doctor's consultation room is Cabin 8 in Wing B.",
+          'The billing and cash counter is right opposite this desk (Counter 1).',
+          'Please follow the yellow line on the floor to reach the laboratory.',
+          'The pharmacy is right next to the main hospital exit.'
+        ];
+      }
+      if (text.includes('fee') || text.includes('cost') || text.includes('pay') || text.includes('rupee') || text.includes('₹') || text.includes('how much')) {
+        return [
+          'The consultation fee is ₹300, payable at Counter 2.',
+          'We accept UPI (GPay/PhonePe), debit cards, and cash.',
+          'Here is your stamped payment receipt. Please keep it safe.',
+          'Government health scheme cards (Ayushman Bharat) are accepted at Counter 5.',
+          'There are no additional charges for this service.'
+        ];
+      }
+      if (text.includes('wait') || text.includes('how long') || text.includes('time') || text.includes('when')) {
+        return [
+          'The wait time is approximately 15 to 20 minutes.',
+          'The doctor is currently attending an emergency. Please wait in the lobby.',
+          'We will wave or display your token number on the screen.',
+          'You are next in queue. Please wait near Room 6.',
+          'The doctor has arrived and will call you in 5 minutes.'
+        ];
+      }
+      // Default staff follow-ups
+      return [
+        'I understand your request. Please wait while I check.',
+        'I will write down the exact room number and directions for you.',
+        'Please take a seat in the waiting area. We will call you soon.',
+        'Is there anything else I can assist you with today?',
+        ...basePhrases.slice(0, 2)
+      ];
+    }
+  };
+
+  /* Auto-scroll chat to latest message */
+  const scrollChatToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  /* ONE-TAP SENDING for predefined phrases */
+  const sendPresetMessage = (text) => {
+    if (!text || isSendingMsg) return;
+    setIsSendingMsg(true);
+    const newMsg = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      role: chatMode,
+      text: text.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      origin: 'preset',
+      intent: activeWorkflow,
+      edited: false
+    };
+    setChatMessages((prev) => [...prev, newMsg]);
+    setChatInput('');
+    setAiDraft(null);
+    setAiDraftError('');
+    setIsSendingMsg(false);
+
+    // Turn alternates immediately
+    const nextRole = chatMode === 'patient' ? 'staff' : 'patient';
+    setChatMode(nextRole);
+
+    setTimeout(scrollChatToBottom, 60);
+  };
+
+  /* MANUAL SENDING for typed composer messages */
+  const sendManualMessage = () => {
+    const clean = (chatInput || '').trim();
+    if (!clean || isSendingMsg) return;
+    setIsSendingMsg(true);
+    const newMsg = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      role: chatMode,
+      text: clean,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      origin: 'manual',
+      intent: activeWorkflow,
+      edited: false
+    };
+    setChatMessages((prev) => [...prev, newMsg]);
+    setChatInput('');
+    setAiDraft(null);
+    setAiDraftError('');
+    setIsSendingMsg(false);
+
+    // Turn alternates immediately
+    const nextRole = chatMode === 'patient' ? 'staff' : 'patient';
+    setChatMode(nextRole);
+
+    setTimeout(scrollChatToBottom, 60);
+  };
+
+  /* CONFIRM & SEND for AI-generated drafts */
+  const confirmAndSendAiDraft = () => {
+    if (!aiDraft || !aiDraft.text.trim() || isSendingMsg) return;
+    setIsSendingMsg(true);
+    const newMsg = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      role: chatMode,
+      text: aiDraft.text.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      origin: 'ai',
+      intent: activeWorkflow,
+      edited: Boolean(aiDraft.isEdited)
+    };
+    setChatMessages((prev) => [...prev, newMsg]);
+    setChatInput('');
+    setAiDraft(null);
+    setAiDraftError('');
+    setIsSendingMsg(false);
+
+    // Turn alternates immediately
+    const nextRole = chatMode === 'patient' ? 'staff' : 'patient';
+    setChatMode(nextRole);
+
+    setTimeout(scrollChatToBottom, 60);
+  };
+
+  /* Dismiss AI draft */
+  const dismissAiDraft = () => {
+    setAiDraft(null);
+    setAiDraftError('');
+  };
+
+  /* Load AI draft into manual composer for extensive editing */
+  const editAiDraftInComposer = () => {
+    if (!aiDraft) return;
+    setChatInput(aiDraft.text);
+    setAiDraft(null);
+    setAiDraftError('');
+    chatTextareaRef.current?.focus();
+  };
+
+  /* Clear / Restart entire conversation */
+  const handleClearConversation = () => {
+    if (chatMessages.length === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm('Restart this conversation from the beginning? All messages will be cleared.')) {
+      return;
+    }
+    setChatMessages([]);
+    setChatInput('');
+    setAiDraft(null);
+    setAiDraftError('');
+    setChatMode('patient');
+    setShowWorkflowSelector(false);
+  };
+
+  /* Request AI-generated dynamic suggestions via existing /api/ai-studio compose_card */
+  const fetchAiSuggestion = async () => {
+    if (isFetchingAi) return;
+    const reqId = ++pendingAiRef.current;
+    setIsFetchingAi(true);
+    setAiDraft(null);
+    setAiDraftError('');
+    try {
+      const isSensitive = SENSITIVE_INTENTS.includes(activeWorkflow);
+      const recentMsgs = chatMessages.slice(-5);
+      const lastOtherMsg = [...recentMsgs].reverse().find((m) => m.role !== chatMode);
+      const contextParts = [];
+
+      if (!isSensitive && cardText) {
+        contextParts.push(`Workflow topic: ${WORKFLOW_METADATA[activeWorkflow]?.title || activeWorkflow}`);
+      }
+      if (lastOtherMsg) {
+        const roleLabel = lastOtherMsg.role === 'patient' ? 'Patient' : 'Hospital Staff';
+        // Bound to 180 chars max to respect token limit
+        contextParts.push(`${roleLabel} said: "${lastOtherMsg.text.slice(0, 180)}"`);
+      }
+
+      const intentText =
+        chatMode === 'patient'
+          ? `As a Deaf ISL patient, I want to respond to the hospital counter staff.${isSensitive ? '' : ` Topic: ${WORKFLOW_METADATA[activeWorkflow]?.title || 'hospital assistance'}.`}`
+          : `As hospital reception staff, I want to respond clearly to the patient.${isSensitive ? ' Patient has a medical question.' : ` Topic: ${WORKFLOW_METADATA[activeWorkflow]?.title || 'hospital assistance'}.`}`;
+
+      const context = contextParts.join(' | ') || `Hospital counter communication. Role: ${chatMode}.`;
+
+      const res = await fetch('/api/ai-studio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'compose_card',
+          payload: { intent: intentText, tone: 'polite', context }
+        })
+      });
+
+      if (!res.ok) throw new Error('API response error');
+      const data = await res.json();
+
+      if (reqId !== pendingAiRef.current) return; // Stale async guard
+
+      if (data && data.composedText) {
+        setAiDraft({
+          text: data.composedText,
+          followUpQuestion: data.followUpQuestion || '',
+          provider: data.provider || 'AI Studio',
+          isEdited: false
+        });
+      } else {
+        setAiDraftError('Could not generate an AI draft. Please tap one of the instant phrases below.');
+      }
+    } catch (err) {
+      if (reqId !== pendingAiRef.current) return;
+      setAiDraftError('AI Studio is currently unavailable. Please tap one of the instant phrases below.');
+    } finally {
+      if (reqId === pendingAiRef.current) setIsFetchingAi(false);
+    }
+  };
+
+  /* -------------------------------------------------------------------------- */
+  /* COMPLETE TWO-WAY CONVERSATION INTERFACE                                    */
+  /* -------------------------------------------------------------------------- */
+
+  const renderConversationSection = () => {
+    const lastOtherMsg = [...chatMessages].reverse().find((m) => m.role !== chatMode);
+    const contextualPhrases = getContextualPhrases(chatMode, activeWorkflow, lastOtherMsg?.text);
+    const currentMeta = WORKFLOW_METADATA[activeWorkflow] || WORKFLOW_METADATA.appointment_request;
+
+    return (
+      <section
+        aria-label="Two-Way AI-Assisted Conversation"
+        className={`rounded-2xl border-2 ${borderTone} p-4 sm:p-6 shadow-md ${cardBg} space-y-4`}
+      >
+        {/* A. CONVERSATION HEADER */}
+        <div
+          className="flex flex-col gap-3 border-b pb-4"
+          style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${accentSolid}`}>
+                <MessageSquare className="w-5 h-5" />
+              </span>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight leading-tight">
+                  Two-Way Conversation
+                </h2>
+                <p className={`text-xs font-semibold ${textSecondary}`}>
+                  Communicate clearly, one message at a time.
+                </p>
+              </div>
+            </div>
+
+            {/* Workflow Topic Switcher */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowWorkflowSelector(!showWorkflowSelector)}
+                className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all shadow-sm ${cardInnerBg} ${borderTone} hover:border-[#655A7C]`}
+                title="Change active healthcare topic"
+              >
+                <span className="text-[10px] font-mono uppercase opacity-60">Topic:</span>
+                <span className="truncate max-w-[150px] sm:max-w-[190px]">{currentMeta.title}</span>
+                <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform ${showWorkflowSelector ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Inline Workflow Dropdown */}
+              {showWorkflowSelector && (
+                <div
+                  className={`absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-xl border-2 ${borderTone} ${cardBg} shadow-xl z-50 p-2 space-y-1.5`}
+                >
+                  <p className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-1 opacity-60">
+                    Switch Healthcare Topic:
+                  </p>
+                  {Object.entries(WORKFLOW_METADATA).map(([wfKey, meta]) => (
+                    <button
+                      key={wfKey}
+                      type="button"
+                      onClick={() => {
+                        setActiveWorkflow(wfKey);
+                        setShowWorkflowSelector(false);
+                        setAiDraft(null);
+                        setAiDraftError('');
+                      }}
+                      className={`w-full text-left p-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${
+                        activeWorkflow === wfKey
+                          ? `${accentSolid} shadow-sm`
+                          : `${cardInnerBg} hover:opacity-80`
+                      }`}
+                    >
+                      <span className="truncate">{meta.title}</span>
+                      {activeWorkflow === wfKey && <Check className="w-3.5 h-3.5 shrink-0 ml-1" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Role Switching & Turn Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+            {/* Speaker Mode Switch */}
+            <div
+              className={`inline-flex rounded-xl border p-1 ${borderTone} ${cardInnerBg}`}
+              role="group"
+              aria-label="Speaker Role Selection"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setChatMode('patient');
+                  setAiDraft(null);
+                  setAiDraftError('');
+                }}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                  chatMode === 'patient' ? `${accentSolid} shadow-sm` : 'opacity-70 hover:opacity-100'
+                }`}
+                aria-pressed={chatMode === 'patient'}
+              >
+                <span>👤 Patient</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setChatMode('staff');
+                  setAiDraft(null);
+                  setAiDraftError('');
+                }}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                  chatMode === 'staff' ? `${accentSolid} shadow-sm` : 'opacity-70 hover:opacity-100'
+                }`}
+                aria-pressed={chatMode === 'staff'}
+              >
+                <span>🏥 Staff</span>
+              </button>
+            </div>
+
+            {/* Turn Indicator & Reset Button */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full animate-pulse ${
+                    chatMode === 'patient' ? 'bg-[#AB92BF]' : 'bg-[#655A7C]'
+                  }`}
+                />
+                <span className="font-bold">
+                  {chatMode === 'patient' ? "Patient's Turn" : "Staff's Turn"}
+                </span>
+              </div>
+
+              {chatMessages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearConversation}
+                  className={`text-[11px] font-mono font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-lg border ${borderTone} hover:border-[#655A7C] opacity-75 hover:opacity-100 transition-all flex items-center gap-1`}
+                  title="Clear conversation and start over"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Restart</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* B. SCROLLABLE CONVERSATION TRANSCRIPT */}
+        <div
+          className={`rounded-xl border ${borderTone} ${cardInnerBg} p-4 min-h-[260px] max-h-[420px] overflow-y-auto space-y-3.5 flex flex-col shadow-inner`}
+          aria-live="polite"
+          aria-label="Conversation Messages"
+        >
+          {chatMessages.length === 0 ? (
+            <div className="my-auto text-center py-10 px-4 space-y-3">
+              <div className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center opacity-80 ${cardBg} border-2 ${borderTone} shadow-sm`}>
+                <MessageSquare className="w-7 h-7 text-[#655A7C]" />
+              </div>
+              <p className="text-base font-black">No messages yet in this conversation.</p>
+              <p className={`text-xs max-w-md mx-auto ${textSecondary} leading-relaxed`}>
+                Current Topic: <strong>{currentMeta.title}</strong>.<br />
+                Tap any <strong>instant response card below</strong> to send immediately, or type a custom message.
+              </p>
+            </div>
+          ) : (
+            <>
+              {chatMessages.map((msg) => {
+                const isStaff = msg.role === 'staff';
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col gap-1 ${isStaff ? 'items-end' : 'items-start'}`}
+                  >
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider opacity-65 px-1.5">
+                      <span>{isStaff ? '🏥 Hospital Staff' : '👤 Patient'}</span>
+                      <span>•</span>
+                      <span>{msg.timestamp}</span>
+                      {msg.origin === 'ai' && (
+                        <span className="text-[#AB92BF] border border-[#AB92BF]/40 rounded px-1 text-[9px]">
+                          ✨ AI {msg.edited ? '(edited)' : ''}
+                        </span>
+                      )}
+                      {msg.origin === 'preset' && (
+                        <span className="opacity-60 text-[9px]">One-tap</span>
+                      )}
+                    </div>
+                    <div
+                      className={`max-w-[85%] sm:max-w-[75%] p-4 rounded-2xl text-sm sm:text-base font-bold leading-relaxed whitespace-pre-line shadow-sm transition-all ${
+                        isStaff
+                          ? 'bg-[#655A7C] text-[#FDF1E2] rounded-tr-sm'
+                          : 'bg-[#AB92BF]/30 text-inherit border-2 border-[#AB92BF]/50 rounded-tl-sm'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={chatEndRef} />
+            </>
+          )}
+        </div>
+
+        {/* C. CONTEXTUAL ONE-TAP QUICK REPLIES (THE CORE FEATURE) */}
+        <div className="space-y-2.5 pt-1">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider opacity-90 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#AB92BF]" />
+              Tap to send immediately ({chatMode === 'patient' ? 'Patient options' : 'Staff options'}):
+            </span>
+
+            {/* AI Suggestion Trigger */}
+            <button
+              type="button"
+              onClick={fetchAiSuggestion}
+              disabled={isFetchingAi}
+              className={`text-xs font-mono font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border ${borderTone} ${cardInnerBg} hover:border-[#655A7C] flex items-center gap-1.5 transition-all self-start sm:self-auto ${
+                isFetchingAi ? 'opacity-50 cursor-wait' : 'hover:opacity-100 shadow-sm'
+              }`}
+              title="Generate a custom AI draft for this conversation"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#AB92BF]" />
+              <span>{isFetchingAi ? 'Asking AI...' : '✨ Suggest with AI'}</span>
+            </button>
+          </div>
+
+          {/* D. AI-GENERATED DRAFT CONFIRMATION PANEL (IF ACTIVE) */}
+          {aiDraft && (
+            <div
+              className={`p-4 rounded-xl border-2 border-[#AB92BF] ${cardInnerBg} space-y-3 shadow-md animate-in fade-in duration-200`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#655A7C] flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#AB92BF]" />
+                  AI-Generated Suggestion (Review & Confirm):
+                </span>
+                <button
+                  type="button"
+                  onClick={dismissAiDraft}
+                  className="text-[11px] font-mono uppercase underline opacity-70 hover:opacity-100"
+                >
+                  Dismiss
+                </button>
+              </div>
+
+              {/* Editable Draft Textarea */}
+              <textarea
+                rows={3}
+                value={aiDraft.text}
+                onChange={(e) =>
+                  setAiDraft((prev) => ({ ...prev, text: e.target.value, isEdited: true }))
+                }
+                className={`w-full p-3 font-bold text-sm sm:text-base border-2 rounded-xl outline-none ${cardBg} ${borderTone} focus:border-[#655A7C] resize-none`}
+                aria-label="Review AI generated text"
+              />
+
+              {aiDraft.followUpQuestion && (
+                <p className={`text-xs font-mono ${textSecondary} italic`}>
+                  Suggested follow-up: {aiDraft.followUpQuestion}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={confirmAndSendAiDraft}
+                  disabled={!aiDraft.text.trim()}
+                  className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm transition-all ${accentSolid} hover:opacity-90 active:scale-[0.98]`}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Confirm & Send</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={editAiDraftInComposer}
+                  className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider border ${borderTone} ${cardBg} hover:opacity-80 transition-all`}
+                >
+                  Edit in Composer
+                </button>
+                <span className={`text-[11px] font-mono ${textSecondary} ml-auto`}>
+                  Review required before sending.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {aiDraftError && (
+            <p className="text-xs font-mono font-bold text-red-500 opacity-90 px-1">{aiDraftError}</p>
+          )}
+
+          {/* LARGE TOUCH-FRIENDLY ONE-TAP PRESET CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+            {contextualPhrases.map((phrase, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => sendPresetMessage(phrase)}
+                className={`p-3.5 sm:p-4 rounded-xl border-2 text-left font-bold text-xs sm:text-sm leading-snug transition-all flex items-start gap-2.5 shadow-sm active:scale-[0.98] ${
+                  cardInnerBg
+                } ${borderTone} hover:border-[#655A7C] hover:shadow`}
+              >
+                <span className="text-base shrink-0 mt-0.5">💬</span>
+                <span className="flex-1">{phrase}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* E. OPTIONAL CUSTOM CHAT COMPOSER */}
+        <div
+          className="space-y-2 pt-3 border-t"
+          style={{ borderColor: isDarkTheme ? '#AB92BF35' : '#655A7C25' }}
+        >
+          <label className="text-xs font-mono font-bold uppercase tracking-wider block opacity-85">
+            {chatMode === 'patient' ? 'Or type a custom patient message:' : 'Or type a custom staff reply:'}
+          </label>
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <textarea
+              ref={chatTextareaRef}
+              rows={2}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  sendManualMessage();
+                }
+              }}
+              placeholder={
+                chatMode === 'patient'
+                  ? 'Type patient message... (Enter to send, Shift+Enter for new line)'
+                  : 'Type hospital staff reply... (Enter to send, Shift+Enter for new line)'
+              }
+              className={`${inputClass} flex-1 resize-none min-h-[56px]`}
+            />
+            <button
+              type="button"
+              onClick={sendManualMessage}
+              disabled={!chatInput.trim() || isSendingMsg}
+              className={`px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all sm:self-stretch ${
+                chatInput.trim() && !isSendingMsg
+                  ? `${accentSolid} hover:opacity-90 active:scale-[0.98]`
+                  : `${cardInnerBg} border ${borderTone} opacity-40 cursor-not-allowed`
+              }`}
+            >
+              <span>Send</span>
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <p className={`text-[10px] font-mono ${textSecondary}`}>
+            Tip: Tapping preset cards above sends immediately. Manual text and AI suggestions require pressing Send or Confirm.
+          </p>
+        </div>
+      </section>
+    );
+  };
   /* ------------------------------ staff reply ------------------------------- */
 
   const finalizeReply = async (text, facts = [], override = false) => {
@@ -1187,6 +2080,19 @@ function GuidedBody() {
                 <ChevronRight className="w-5 h-5" />
               </button>
 
+              {/* TWO-WAY AI-ASSISTED CONVERSATION SECTION (VISIBLE IMMEDIATELY) */}
+              {renderConversationSection()}
+
+              {/* Standard Guided Requests Divider */}
+              <div className="pt-2 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 border-t opacity-30" style={{ borderColor: isDarkTheme ? '#AB92BF' : '#655A7C' }} />
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider opacity-75">
+                    Or choose a standard request
+                  </span>
+                  <div className="h-px flex-1 border-t opacity-30" style={{ borderColor: isDarkTheme ? '#AB92BF' : '#655A7C' }} />
+                </div>
+
               {!needId && historyList.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -1259,6 +2165,7 @@ function GuidedBody() {
                   ))}
                 </div>
               )}
+              </div>
             </div>
           )}
 
@@ -1537,6 +2444,9 @@ function GuidedBody() {
                 </div>
               )}
 
+              {/* TWO-WAY AI-ASSISTED CONVERSATION SECTION */}
+              {renderConversationSection()}
+
               {/* Vague reply guard */}
               {guard && (
                 <div className={`p-5 sm:p-6 rounded-xl border-2 border-[#655A7C] ${cardBg} space-y-4`}>
@@ -1680,6 +2590,31 @@ function GuidedBody() {
                 )}
               </div>
 
+              {chatMessages.length > 0 && (
+                <div className={`p-5 rounded-xl border ${borderTone} max-w-xl mx-auto space-y-3 ${cardBg}`}>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest opacity-70 block">
+                    <MessageSquare className="w-3 h-3 inline mr-1" />Conversation transcript
+                  </span>
+                  <div className={`rounded-lg border ${borderTone} ${cardInnerBg} p-3 max-h-48 overflow-y-auto space-y-3`}>
+                    {chatMessages.map((msg) => (
+                      <div key={msg.id} className={`flex flex-col gap-0.5 ${msg.role === 'staff' ? 'items-end' : 'items-start'}`}>
+                        <span className="text-[9px] font-mono font-bold uppercase tracking-wider opacity-60">
+                          {msg.role === 'patient' ? 'Patient' : 'Staff'} • {msg.timestamp}
+                        </span>
+                        <span
+                          className={`inline-block max-w-[85%] px-3 py-2 rounded-xl text-sm font-bold leading-snug ${
+                            msg.role === 'staff'
+                              ? 'bg-[#655A7C] text-[#FDF1E2]'
+                              : 'bg-[#AB92BF]/30 text-inherit'
+                          }`}
+                        >
+                          {msg.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row justify-center gap-3 max-w-xl mx-auto">
                 <button
                   onClick={() => openShare('receipt')}

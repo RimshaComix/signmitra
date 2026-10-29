@@ -170,6 +170,19 @@ from backend.isl.app import (
     run_isl_prediction,
 )
 
+@app.get("/")
+def production_root_canary():
+    return {
+        "status": "healthy",
+        "service": "SignMitra AI Studio Backend Engine",
+        "environment": "production"
+    }
+
+
+@app.get("/health")
+def root_isl_health():
+    return get_isl_health_payload()
+
 
 @app.get("/health")
 def root_isl_health():

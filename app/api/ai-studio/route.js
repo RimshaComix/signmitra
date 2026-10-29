@@ -401,7 +401,7 @@ export async function POST(req) {
             action,
             data: payload
           }),
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(30000)
         }
       );
 

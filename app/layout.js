@@ -1,4 +1,5 @@
-import './globals.css';
+// import './globals.css';
+import '@/app/globals.css';
 import { ThemeProvider } from '../context/ThemeContext';
 import AppWrapper from '../components/AppWrapper';
 

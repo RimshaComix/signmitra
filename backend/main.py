@@ -184,11 +184,6 @@ def root_isl_health():
     return get_isl_health_payload()
 
 
-@app.get("/health")
-def root_isl_health():
-    return get_isl_health_payload()
-
-
 @app.post("/predict")
 def root_isl_predict(payload: dict):
     return run_isl_prediction(payload)
